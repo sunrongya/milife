@@ -1,5 +1,4 @@
 # milife
-练习建模项目（商品交易），主要练习技能：DDD+TDD+CQRS+Event Sourcing
 
 ## 简介
 这个商品交易平台是为了演示DDD+TDD+CQRS+Event Sourcing实现过程
