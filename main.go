@@ -4,8 +4,8 @@ import (
 	"fmt"
 	ES "github.com/sunrongya/eventsourcing"
 	"sync"
-	"milife/paymet"
-	"milife/trade"
+	"github.com/sunrongya/milife/paymet"
+	"github.com/sunrongya/milife/trade"
 	"time"
 )
 
