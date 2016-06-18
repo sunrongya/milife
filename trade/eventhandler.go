@@ -4,59 +4,69 @@ import (
 	es "github.com/sunrongya/eventsourcing"
 )
 
-type EventHandler struct {
+type PurchaseEventHandler struct {
 	goodsChan    chan<- es.Command
 	purchaseChan chan<- es.Command
-	commentChan  chan<- es.Command
 }
 
-func (this *EventHandler) HandleGoodsPurchaseCreatedEvent(event *GoodsPurchaseCreatedEvent) {
+func NewPurchaseEventHandler(goodsChan, purchaseChan chan<- es.Command) *PurchaseEventHandler {
+	return &PurchaseEventHandler{
+		goodsChan:    goodsChan,
+		purchaseChan: purchaseChan,
+	}
+}
+
+func (this *PurchaseEventHandler) HandleGoodsPurchaseCreatedEvent(event *GoodsPurchaseCreatedEvent) {
 	this.goodsChan <- &PurchaseGoodsBecauseOfPurchaseCommand{
 		WithGuid:        es.WithGuid{Guid: event.Goods},
 		PurchaseDetails: event.PurchaseDetails,
 	}
 }
 
-func (this *EventHandler) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
+func (this *PurchaseEventHandler) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
 	this.purchaseChan <- &CompleteGoodsPurchaseCommand{
 		WithGuid:        es.WithGuid{Guid: event.Purchase},
 		PurchaseDetails: event.PurchaseDetails,
 	}
 }
 
-func (this *EventHandler) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
+func (this *PurchaseEventHandler) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
 	this.purchaseChan <- &FailGoodsPurchaseCommand{
 		WithGuid:        es.WithGuid{Guid: event.Purchase},
 		PurchaseDetails: event.PurchaseDetails,
 	}
 }
 
-func (this *EventHandler) HandleGoodsCommentCreatedEvent(event *GoodsCommentCreatedEvent) {
+type CommentEventHandler struct {
+	goodsChan   chan<- es.Command
+	commentChan chan<- es.Command
+}
+
+func NewCommentEventHandler(goodsChan, commentChan chan<- es.Command) *CommentEventHandler {
+	return &CommentEventHandler{
+		goodsChan:   goodsChan,
+		commentChan: commentChan,
+	}
+}
+
+func (this *CommentEventHandler) HandleGoodsCommentCreatedEvent(event *GoodsCommentCreatedEvent) {
 	this.goodsChan <- &CommentGoodsBecauseOfCommentCommand{
 		WithGuid:       es.WithGuid{Guid: event.Goods},
 		CommentDetails: event.CommentDetails,
 	}
 }
 
-func (this *EventHandler) HandleGoodsCommentCompletedEvent(event *GoodsCommentCompletedEvent) {
+func (this *CommentEventHandler) HandleGoodsCommentCompletedEvent(event *GoodsCommentCompletedEvent) {
 	this.commentChan <- &CompleteGoodsCommentCommand{
 		WithGuid:       es.WithGuid{Guid: event.Comment},
 		CommentDetails: event.CommentDetails,
 	}
 }
 
-func (this *EventHandler) HandleGoodsCommentFailedEvent(event *GoodsCommentFailedEvent) {
+func (this *CommentEventHandler) HandleGoodsCommentFailedEvent(event *GoodsCommentFailedEvent) {
 	this.commentChan <- &FailGoodsCommentCommand{
 		WithGuid:       es.WithGuid{Guid: event.Comment},
 		CommentDetails: event.CommentDetails,
-	}
-}
-
-func NewEventHandler(goodsChan, purchaseChan, commentChan chan<- es.Command) *EventHandler {
-	return &EventHandler{
-		goodsChan:    goodsChan,
-		purchaseChan: purchaseChan,
-		commentChan:  commentChan,
 	}
 }
 
@@ -64,6 +74,14 @@ type PaymetEventHandler struct {
 	PaymetService
 	goodsChan chan<- es.Command
 	orderChan chan<- es.Command
+}
+
+func NewPaymetEventHandler(paymetService PaymetService, goodsCh, orderCh chan<- es.Command) *PaymetEventHandler {
+	return &PaymetEventHandler{PaymetService: paymetService, goodsChan: goodsCh, orderChan: orderCh}
+}
+
+type PaymetService interface {
+	Transfer(Money, BankAccount, BankAccount, func(bool))
 }
 
 func (this *PaymetEventHandler) HandleOrderPaymetCreatedEvent(event *OrderPaymetCreatedEvent) {
@@ -110,19 +128,4 @@ func (this *PaymetEventHandler) HandleOrderPaymetFailedEvent(event *OrderPaymetF
 			Quantity: v.Quantity,
 		}
 	}
-}
-
-func NewPaymetEventHandler(paymetService PaymetService, goodsCh, orderCh chan<- es.Command) *PaymetEventHandler {
-	return &PaymetEventHandler{PaymetService: paymetService, goodsChan: goodsCh, orderChan: orderCh}
-}
-
-type PaymetService interface {
-	Transfer(Money, BankAccount, BankAccount, func(bool))
-}
-
-type NullPaymetService struct {
-}
-
-func (n *NullPaymetService) Transfer(amount Money, userAccount, managedAccount BankAccount, completeFn func(bool)) {
-	completeFn(true)
 }

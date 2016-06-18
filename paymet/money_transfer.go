@@ -29,67 +29,47 @@ type MoneyTransfer struct {
 
 var _ es.Aggregate = (*MoneyTransfer)(nil)
 
-func (a *MoneyTransfer) ApplyEvents(events []es.Event) {
-	for _, e := range events {
-		switch event := e.(type) {
-		case *TransferCreatedEvent:
-			a.mTDetails, a.state = event.mTDetails, Created
-		case *TransferDebitedEvent:
-			a.state = Debited
-		case *TransferCompletedEvent:
-			a.state = Completed
-		case *TransferFailedEvent:
-			a.state = Failed
-		default:
-			panic(fmt.Errorf("Unknown event %#v", event))
-		}
-	}
-	a.SetVersion(len(events))
+func NewMoneyTransfer() es.Aggregate {
+	return &MoneyTransfer{}
 }
 
-func (a *MoneyTransfer) ProcessCommand(command es.Command) []es.Event {
-	var event es.Event
-	switch c := command.(type) {
-	case *CreateTransferCommand:
-		event = a.processCreateTransferCommand(c)
-	case *DebitedTransferCommand:
-		event = a.processDebitedTransferCommand(c)
-	case *CompletedTransferCommand:
-		event = a.processCompletedTransferCommand(c)
-	case *FailedTransferCommand:
-		event = a.processFailedTransferCommand(c)
-	default:
-		panic(fmt.Errorf("Unknown command %#v", c))
-	}
-	event.SetGuid(command.GetGuid())
-	return []es.Event{event}
+func (a *MoneyTransfer) ProcessCreateTransferCommand(command *CreateTransferCommand) []es.Event {
+	return []es.Event{&TransferCreatedEvent{mTDetails: command.mTDetails}}
 }
 
-func (a *MoneyTransfer) processCreateTransferCommand(command *CreateTransferCommand) es.Event {
-	return &TransferCreatedEvent{mTDetails: command.mTDetails}
-}
-
-func (a *MoneyTransfer) processDebitedTransferCommand(command *DebitedTransferCommand) es.Event {
+func (a *MoneyTransfer) ProcessDebitedTransferCommand(command *DebitedTransferCommand) []es.Event {
 	if a.state != Created {
 		panic(fmt.Errorf("Can't process DebitedTransferCommand of state:%s", a.state))
 	}
-	return &TransferDebitedEvent{mTDetails: command.mTDetails}
+	return []es.Event{&TransferDebitedEvent{mTDetails: command.mTDetails}}
 }
 
-func (a *MoneyTransfer) processCompletedTransferCommand(command *CompletedTransferCommand) es.Event {
+func (a *MoneyTransfer) ProcessCompletedTransferCommand(command *CompletedTransferCommand) []es.Event {
 	if a.state != Debited {
 		panic(fmt.Errorf("Can't process CompletedTransferCommand of state:%s", a.state))
 	}
-	return &TransferCompletedEvent{mTDetails: command.mTDetails}
+	return []es.Event{&TransferCompletedEvent{mTDetails: command.mTDetails}}
 }
 
-func (a *MoneyTransfer) processFailedTransferCommand(command *FailedTransferCommand) es.Event {
+func (a *MoneyTransfer) ProcessFailedTransferCommand(command *FailedTransferCommand) []es.Event {
 	if a.state == Created || a.state == Completed || a.state == Failed {
 		panic(fmt.Errorf("Can't process FailedTransferCommand of state:%s", a.state))
 	}
-	return &TransferFailedEvent{mTDetails: command.mTDetails}
+	return []es.Event{&TransferFailedEvent{mTDetails: command.mTDetails}}
 }
 
-func NewMoneyTransfer() es.Aggregate {
-	return &MoneyTransfer{}
+func (a *MoneyTransfer) HandleTransferCreatedEvent(event *TransferCreatedEvent) {
+	a.mTDetails, a.state = event.mTDetails, Created
+}
+
+func (a *MoneyTransfer) HandleTransferDebitedEvent(event *TransferDebitedEvent) {
+	a.state = Debited
+}
+
+func (a *MoneyTransfer) HandleTransferCompletedEvent(event *TransferCompletedEvent) {
+	a.state = Completed
+}
+
+func (a *MoneyTransfer) HandleTransferFailedEvent(event *TransferFailedEvent) {
+	a.state = Failed
 }

@@ -1,7 +1,7 @@
 package paymet
 
 import (
-	"fmt"
+	//"fmt"
 	"github.com/stretchr/testify/assert"
 	es "github.com/sunrongya/eventsourcing"
 	"testing"
@@ -15,134 +15,108 @@ func TestMoneyTransferRestore(t *testing.T) {
 		Transaction: es.NewGuid(),
 	}
 	moneyTransfer := &MoneyTransfer{}
-	moneyTransfer.ApplyEvents([]es.Event{
-		&TransferCreatedEvent{mTDetails: details},
-		&TransferDebitedEvent{mTDetails: details},
-		&TransferCompletedEvent{mTDetails: details},
-	})
+	moneyTransfer.HandleTransferCreatedEvent(&TransferCreatedEvent{mTDetails: details})
+	moneyTransfer.HandleTransferDebitedEvent(&TransferDebitedEvent{mTDetails: details})
+	moneyTransfer.HandleTransferCompletedEvent(&TransferCompletedEvent{mTDetails: details})
+
 	assert.Equal(t, Completed, moneyTransfer.state, "")
 	assert.Equal(t, details, moneyTransfer.mTDetails, "")
-	assert.Equal(t, 3, moneyTransfer.Version())
 }
 
-func TestMoneyTransferForErrorEvent(t *testing.T) {
-	assert.Panics(t, func() {
-		NewMoneyTransfer().ApplyEvents([]es.Event{&struct{ es.WithGuid }{}})
-	}, "restore error event must panic error")
-}
-
-func TestCheckMoneyTransferApplyEvents(t *testing.T) {
-	events := []es.Event{
-		&TransferCreatedEvent{},
-		&TransferDebitedEvent{},
-		&TransferCompletedEvent{},
-		&TransferFailedEvent{},
-	}
-	assert.NotPanics(t, func() { NewMoneyTransfer().ApplyEvents(events) }, "Check Process All Event")
-}
-
-func TestMoneyTransferProcessCommand(t *testing.T) {
+func TestCreateTransferCommand(t *testing.T) {
 	details := mTDetails{
 		From:        es.NewGuid(),
 		To:          es.NewGuid(),
 		Amount:      40,
 		Transaction: es.NewGuid(),
 	}
+	command := &CreateTransferCommand{mTDetails: details}
+	events := []es.Event{&TransferCreatedEvent{mTDetails: details}}
 
-	tests := []struct {
-		transfer *MoneyTransfer
-		command  es.Command
-		event    es.Event
-	}{
-		{
-			&MoneyTransfer{},
-			&CreateTransferCommand{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-			&TransferCreatedEvent{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-		},
-		{
-			&MoneyTransfer{state: Created},
-			&DebitedTransferCommand{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-			&TransferDebitedEvent{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-		},
-		{
-			&MoneyTransfer{state: Debited},
-			&CompletedTransferCommand{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-			&TransferCompletedEvent{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-		},
-		{
-			&MoneyTransfer{state: Debited},
-			&FailedTransferCommand{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-			&TransferFailedEvent{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-		},
-		{
-			&MoneyTransfer{},
-			&FailedTransferCommand{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-			&TransferFailedEvent{WithGuid: es.WithGuid{Guid: details.Transaction}, mTDetails: details},
-		},
+	assert.Equal(t, events, new(MoneyTransfer).ProcessCreateTransferCommand(command), "执行CreateTransferCommand产生的事件有误")
+}
+
+func TestDebitedTransferCommand(t *testing.T) {
+	details := mTDetails{
+		From:        es.NewGuid(),
+		To:          es.NewGuid(),
+		Amount:      40,
+		Transaction: es.NewGuid(),
 	}
+	moneyTransfer := &MoneyTransfer{state: Created}
+	command := &DebitedTransferCommand{mTDetails: details}
+	events := []es.Event{&TransferDebitedEvent{mTDetails: details}}
 
-	for _, v := range tests {
-		assert.Equal(t, []es.Event{v.event}, v.transfer.ProcessCommand(v.command))
+	assert.Equal(t, events, moneyTransfer.ProcessDebitedTransferCommand(command), "执行DebitedTransferCommand产生的事件有误")
+}
+
+func TestCompletedTransferCommand(t *testing.T) {
+	details := mTDetails{
+		From:        es.NewGuid(),
+		To:          es.NewGuid(),
+		Amount:      40,
+		Transaction: es.NewGuid(),
+	}
+	moneyTransfer := &MoneyTransfer{state: Debited}
+	command := &CompletedTransferCommand{mTDetails: details}
+	events := []es.Event{&TransferCompletedEvent{mTDetails: details}}
+
+	assert.Equal(t, events, moneyTransfer.ProcessCompletedTransferCommand(command), "执行CompletedTransferCommand产生的事件有误")
+}
+
+func TestFailedTransferCommand(t *testing.T) {
+	details := mTDetails{
+		From:        es.NewGuid(),
+		To:          es.NewGuid(),
+		Amount:      40,
+		Transaction: es.NewGuid(),
+	}
+	moneyTransfers := []*MoneyTransfer{&MoneyTransfer{state: Debited}, &MoneyTransfer{}}
+	command := &FailedTransferCommand{mTDetails: details}
+	events := []es.Event{&TransferFailedEvent{mTDetails: details}}
+
+	for _, moneyTransfer := range moneyTransfers {
+		assert.Equal(t, events, moneyTransfer.ProcessFailedTransferCommand(command), "执行FailedTransferCommand产生的事件有误")
 	}
 }
 
-func TestMoneyTransferCommand_Panic(t *testing.T) {
-	tests := []struct {
-		transfer *MoneyTransfer
-		command  es.Command
-	}{
-		{
-			&MoneyTransfer{},
-			&struct{ es.WithGuid }{},
-		},
-		{
-			&MoneyTransfer{},
-			&DebitedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Debited},
-			&DebitedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Completed},
-			&DebitedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Failed},
-			&DebitedTransferCommand{},
-		},
-
-		{
-			&MoneyTransfer{},
-			&CompletedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Created},
-			&CompletedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Completed},
-			&CompletedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Failed},
-			&CompletedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Created},
-			&FailedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Completed},
-			&FailedTransferCommand{},
-		},
-		{
-			&MoneyTransfer{state: Failed},
-			&FailedTransferCommand{},
-		},
+func TestDebitedTransferCommand_Panic(t *testing.T) {
+	moneyTransfers := []*MoneyTransfer{
+		&MoneyTransfer{},
+		&MoneyTransfer{state: Debited},
+		&MoneyTransfer{state: Completed},
+		&MoneyTransfer{state: Failed},
 	}
+	for _, moneyTransfer := range moneyTransfers {
+		assert.Panics(t, func() {
+			moneyTransfer.ProcessDebitedTransferCommand(&DebitedTransferCommand{})
+		}, "执行DebitedTransferCommand命令应该抛出异常")
+	}
+}
 
-	for _, v := range tests {
-		assert.Panics(t, func() { v.transfer.ProcessCommand(v.command) }, fmt.Sprintf("test panics error: command:%v", v.command))
+func TestCompletedTransferCommand_Panic(t *testing.T) {
+	moneyTransfers := []*MoneyTransfer{
+		&MoneyTransfer{},
+		&MoneyTransfer{state: Created},
+		&MoneyTransfer{state: Completed},
+		&MoneyTransfer{state: Failed},
+	}
+	for _, moneyTransfer := range moneyTransfers {
+		assert.Panics(t, func() {
+			moneyTransfer.ProcessCompletedTransferCommand(&CompletedTransferCommand{})
+		}, "执行CompletedTransferCommand命令应该抛出异常")
+	}
+}
+
+func TestFailedTransferCommand_Panic(t *testing.T) {
+	moneyTransfers := []*MoneyTransfer{
+		&MoneyTransfer{state: Created},
+		&MoneyTransfer{state: Completed},
+		&MoneyTransfer{state: Failed},
+	}
+	for _, moneyTransfer := range moneyTransfers {
+		assert.Panics(t, func() {
+			moneyTransfer.ProcessFailedTransferCommand(&FailedTransferCommand{})
+		}, "执行FailedTransferCommand命令应该抛出异常")
 	}
 }

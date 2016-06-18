@@ -1,123 +1,90 @@
 package trade
 
-import(
-    "fmt"
-    "testing"
-    "github.com/stretchr/testify/assert"
-    es "github.com/sunrongya/eventsourcing"
+import (
+	"github.com/stretchr/testify/assert"
+	es "github.com/sunrongya/eventsourcing"
+	"testing"
 )
 
 func TestGoodsPurchaseRestore(t *testing.T) {
-    details := PurchaseDetails{
-        User:     es.NewGuid(),
-        Goods:    es.NewGuid(),
-        Purchase: es.NewGuid(),
-        Quantity: 5,
-    }
-    purchase := &GoodsPurchase{}
-    purchase.ApplyEvents([]es.Event{
-        &GoodsPurchaseCreatedEvent{ WithGuid:es.WithGuid{details.Purchase}, PurchaseDetails:details },
-        &GoodsPurchaseCompletedEvent{ WithGuid:es.WithGuid{details.Purchase}, PurchaseDetails:details },
-    })
-    assert.Equal(t, 2, purchase.Version(), "version error")
-    assert.Equal(t, details, purchase.PurchaseDetails, "PurchaseDetails error")
-    assert.Equal(t, PurchaseCompleted, purchase.state, "state error")
+	details := PurchaseDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Quantity: 5,
+	}
+	purchase := &GoodsPurchase{}
+	purchase.HandleGoodsPurchaseCreatedEvent(&GoodsPurchaseCreatedEvent{PurchaseDetails: details})
+	purchase.HandleGoodsPurchaseCompletedEvent(&GoodsPurchaseCompletedEvent{PurchaseDetails: details})
+
+	assert.Equal(t, details, purchase.PurchaseDetails, "PurchaseDetails error")
+	assert.Equal(t, PurchaseCompleted, purchase.state, "state error")
 }
 
-func TestGoodsPurchaseRestoreForErrorEvent(t *testing.T){
-    assert.Panics(t, func(){ 
-        NewGoodsPurchase().ApplyEvents([]es.Event{ &struct{es.WithGuid}{} }) 
-    }, "restore error event must panic error")
+func TestCreateGoodsPurchaseCommand(t *testing.T) {
+	details := PurchaseDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Quantity: 5,
+	}
+	command := &CreateGoodsPurchaseCommand{PurchaseDetails: details}
+	events := []es.Event{&GoodsPurchaseCreatedEvent{PurchaseDetails: details}}
+	goodsPurchase := &GoodsPurchase{}
+
+	assert.Equal(t, events, goodsPurchase.ProcessCreateGoodsPurchaseCommand(command))
 }
 
-func TestCheckGoodsPurchaseApplyEvents(t *testing.T) {
-    events := []es.Event{
-        &GoodsPurchaseCreatedEvent{},
-        &GoodsPurchaseCompletedEvent{},
-        &GoodsPurchaseFailedEvent{},
-    }
-    assert.NotPanics(t, func(){ NewGoodsPurchase().ApplyEvents(events) }, "Check Process All Event")
+func TestCompleteGoodsPurchaseCommand(t *testing.T) {
+	details := PurchaseDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Quantity: 5,
+	}
+	command := &CompleteGoodsPurchaseCommand{PurchaseDetails: details}
+	events := []es.Event{&GoodsPurchaseCompletedEvent{PurchaseDetails: details}}
+	goodsPurchase := &GoodsPurchase{state: PurchaseStarted}
+
+	assert.Equal(t, events, goodsPurchase.ProcessCompleteGoodsPurchaseCommand(command))
 }
 
-func TestGoodsPurchaseCommand(t *testing.T){
-    details := PurchaseDetails{
-        User:     es.NewGuid(),
-        Goods:    es.NewGuid(),
-        Purchase: es.NewGuid(),
-        Quantity: 5,
-    }
-    
-    tests := []struct{
-        goodsPurchase  *GoodsPurchase
-        command  es.Command
-        event  es.Event
-    }{
-        {
-            &GoodsPurchase{},
-            &CreateGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-            &GoodsPurchaseCreatedEvent{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{ state:PurchaseStarted },
-            &CompleteGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-            &GoodsPurchaseCompletedEvent{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{ state:PurchaseStarted },
-            &FailGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-            &GoodsPurchaseFailedEvent{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-    }
-    
-    for _, v := range tests {
-        assert.Equal(t, []es.Event{v.event}, v.goodsPurchase.ProcessCommand(v.command) )
-    }
+func TestFailGoodsPurchaseCommand(t *testing.T) {
+	details := PurchaseDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Quantity: 5,
+	}
+	command := &FailGoodsPurchaseCommand{PurchaseDetails: details}
+	events := []es.Event{&GoodsPurchaseFailedEvent{PurchaseDetails: details}}
+	goodsPurchase := &GoodsPurchase{state: PurchaseStarted}
+
+	assert.Equal(t, events, goodsPurchase.ProcessFailGoodsPurchaseCommand(command))
 }
 
-func TestGoodsPurchaseCommand_Panic(t *testing.T){
-    details := PurchaseDetails{
-        User:     es.NewGuid(),
-        Goods:    es.NewGuid(),
-        Purchase: es.NewGuid(),
-        Quantity: 5,
-    }
-    
-    tests := []struct{
-        goodsPurchase  *GoodsPurchase
-        command  es.Command
-    }{
-        {
-            &GoodsPurchase{},
-            &struct{es.WithGuid}{ WithGuid:es.WithGuid{Guid:details.Purchase} },
-        },
-        {
-            &GoodsPurchase{},
-            &CompleteGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{ state:PurchaseCompleted },
-            &CompleteGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{ state:PurchaseFailed },
-            &CompleteGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{},
-            &FailGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{ state:PurchaseCompleted },
-            &FailGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-        {
-            &GoodsPurchase{ state:PurchaseFailed },
-            &FailGoodsPurchaseCommand{WithGuid:es.WithGuid{Guid:details.Purchase}, PurchaseDetails:details},
-        },
-    }
-    
-    for _, v := range tests {
-        assert.Panics(t, func(){v.goodsPurchase.ProcessCommand(v.command)}, fmt.Sprintf("test panics error: command:%v", v.command))
-    }
+func TestCompleteGoodsPurchaseCommand_Panic(t *testing.T) {
+	goodsPurchases := []*GoodsPurchase{
+		&GoodsPurchase{},
+		&GoodsPurchase{state: PurchaseCompleted},
+		&GoodsPurchase{state: PurchaseFailed},
+	}
+	for _, goodsPurchase := range goodsPurchases {
+		assert.Panics(t, func() {
+			goodsPurchase.ProcessCompleteGoodsPurchaseCommand(&CompleteGoodsPurchaseCommand{})
+		}, "执行命令CompleteGoodsPurchaseCommand应该抛出异常")
+	}
 }
 
+func TestFailGoodsPurchaseCommand_Panic(t *testing.T) {
+	goodsPurchases := []*GoodsPurchase{
+		&GoodsPurchase{},
+		&GoodsPurchase{state: PurchaseCompleted},
+		&GoodsPurchase{state: PurchaseFailed},
+	}
+	for _, goodsPurchase := range goodsPurchases {
+		assert.Panics(t, func() {
+			goodsPurchase.ProcessFailGoodsPurchaseCommand(&FailGoodsPurchaseCommand{})
+		}, "执行命令FailGoodsPurchaseCommand应该抛出异常")
+	}
+}

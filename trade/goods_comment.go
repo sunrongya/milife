@@ -22,6 +22,10 @@ type GoodsComment struct {
 
 var _ es.Aggregate = (*GoodsComment)(nil)
 
+func NewGoodsComment() es.Aggregate {
+	return &GoodsComment{}
+}
+
 type CommentDetails struct {
 	User     es.Guid
 	Goods    es.Guid
@@ -31,56 +35,32 @@ type CommentDetails struct {
 	Time     time.Time
 }
 
-func (g *GoodsComment) ApplyEvents(events []es.Event) {
-	for _, event := range events {
-		switch e := event.(type) {
-		case *GoodsCommentCreatedEvent:
-			g.CommentDetails, g.state = e.CommentDetails, CommentStarted
-		case *GoodsCommentCompletedEvent:
-			g.state = CommentCompleted
-		case *GoodsCommentFailedEvent:
-			g.state = CommentFailed
-		default:
-			panic(fmt.Errorf("Unknown event %#v", e))
-		}
-	}
-	g.SetVersion(len(events))
+func (g *GoodsComment) ProcessCreateGoodsCommentCommand(command *CreateGoodsCommentCommand) []es.Event {
+	return []es.Event{&GoodsCommentCreatedEvent{CommentDetails: command.CommentDetails}}
 }
 
-func (g *GoodsComment) ProcessCommand(command es.Command) []es.Event {
-	var event es.Event
-	switch c := command.(type) {
-	case *CreateGoodsCommentCommand:
-		event = g.processCreateGoodsCommentCommand(c)
-	case *CompleteGoodsCommentCommand:
-		event = g.processCompleteGoodsCommentCommand(c)
-	case *FailGoodsCommentCommand:
-		event = g.processFailGoodsCommentCommand(c)
-	default:
-		panic(fmt.Errorf("Unknown command %#v", c))
-	}
-	event.SetGuid(command.GetGuid())
-	return []es.Event{event}
-}
-
-func (g *GoodsComment) processCreateGoodsCommentCommand(command *CreateGoodsCommentCommand) es.Event {
-	return &GoodsCommentCreatedEvent{CommentDetails: command.CommentDetails}
-}
-
-func (g *GoodsComment) processCompleteGoodsCommentCommand(command *CompleteGoodsCommentCommand) es.Event {
+func (g *GoodsComment) ProcessCompleteGoodsCommentCommand(command *CompleteGoodsCommentCommand) []es.Event {
 	if g.state != CommentStarted {
 		panic(fmt.Errorf("Can't process CompleteGoodsCommentCommand of state:%s", g.state))
 	}
-	return &GoodsCommentCompletedEvent{CommentDetails: command.CommentDetails}
+	return []es.Event{&GoodsCommentCompletedEvent{CommentDetails: command.CommentDetails}}
 }
 
-func (g *GoodsComment) processFailGoodsCommentCommand(command *FailGoodsCommentCommand) es.Event {
+func (g *GoodsComment) ProcessFailGoodsCommentCommand(command *FailGoodsCommentCommand) []es.Event {
 	if g.state != CommentStarted {
 		panic(fmt.Errorf("Can't process FailGoodsCommentCommand of state:%s", g.state))
 	}
-	return &GoodsCommentFailedEvent{CommentDetails: command.CommentDetails}
+	return []es.Event{&GoodsCommentFailedEvent{CommentDetails: command.CommentDetails}}
 }
 
-func NewGoodsComment() es.Aggregate {
-	return &GoodsComment{}
+func (g *GoodsComment) HandleGoodsCommentCreatedEvent(event *GoodsCommentCreatedEvent) {
+	g.CommentDetails, g.state = event.CommentDetails, CommentStarted
+}
+
+func (g *GoodsComment) HandleGoodsCommentCompletedEvent(event *GoodsCommentCompletedEvent) {
+	g.state = CommentCompleted
+}
+
+func (g *GoodsComment) HandleGoodsCommentFailedEvent(event *GoodsCommentFailedEvent) {
+	g.state = CommentFailed
 }

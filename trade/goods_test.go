@@ -1,7 +1,6 @@
 package trade
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	es "github.com/sunrongya/eventsourcing"
 	"testing"
@@ -9,14 +8,11 @@ import (
 )
 
 func TestGoodsRestore(t *testing.T) {
-	guid := es.NewGuid()
 	goods := &Goods{}
-	goods.ApplyEvents([]es.Event{
-		&GoodsPublishedEvent{WithGuid: es.WithGuid{guid}, Name: "mmm", Price: 50, Quantity: 100, SN: "20160601333"},
-		&GoodsAuditedPassEvent{WithGuid: es.WithGuid{guid}},
-		&GoodsOnlinedEvent{WithGuid: es.WithGuid{guid}},
-	})
-	assert.Equal(t, 3, goods.Version(), "version error")
+	goods.HandleGoodsPublishedEvent(&GoodsPublishedEvent{Name: "mmm", Price: 50, Quantity: 100, SN: "20160601333"})
+	goods.HandleGoodsAuditedPassEvent(&GoodsAuditedPassEvent{})
+	goods.HandleGoodsOnlinedEvent(&GoodsOnlinedEvent{})
+
 	assert.Equal(t, "mmm", goods.name, "name error")
 	assert.Equal(t, Money(50), goods.price, "price error")
 	assert.Equal(t, Quantity(100), goods.quantity, "quantity error")
@@ -24,238 +20,121 @@ func TestGoodsRestore(t *testing.T) {
 	assert.Equal(t, Onlined, goods.state, "state error")
 }
 
-func TestGoodsRestoreForErrorEvent(t *testing.T) {
-	assert.Panics(t, func() {
-		NewGoods().ApplyEvents([]es.Event{&struct{ es.WithGuid }{}})
-	}, "restore error event must panic error")
+func TestPublishGoodsCommand(t *testing.T) {
+	command := &PublishGoodsCommand{Name: "mmm", Price: 50, Quantity: 100, SN: "20160601333"}
+	events := []es.Event{&GoodsPublishedEvent{Name: "mmm", Price: 50, Quantity: 100, SN: "20160601333"}}
+	goods := &Goods{}
+
+	assert.Equal(t, events, goods.ProcessPublishGoodsCommand(command))
 }
 
-func TestCheckGoodsApplyEvents(t *testing.T) {
-	events := []es.Event{
-		&GoodsPublishedEvent{},
-		&GoodsAuditedPassEvent{},
-		&GoodsAuditedNoPassEvent{},
-		&GoodsOnlinedEvent{},
-		&GoodsOfflinedEvent{},
-		&GoodsPurchaseSuccessedEvent{},
-		&GoodsPurchaseFailuredEvent{},
-		&GoodsCommentSuccessedEvent{},
-		&GoodsCommentFailuredEvent{},
-		&PaymetGoodsCompletedBecauseOfOrderEvent{},
-		&PaymetGoodsFailedBecauseOfOrderEvent{},
-	}
-	assert.NotPanics(t, func() { NewGoods().ApplyEvents(events) }, "Check Process All Event")
+func TestAuditGoodsCommandOfPass(t *testing.T) {
+	command := &AuditGoodsCommand{IsPass: true}
+	events := []es.Event{&GoodsAuditedPassEvent{}}
+	goods := &Goods{state: Published}
+
+	assert.Equal(t, events, goods.ProcessAuditGoodsCommand(command))
 }
 
-func TestGoodsCommand(t *testing.T) {
-	guid := es.NewGuid()
+func TestAuditGoodsCommandOfNoPass(t *testing.T) {
+	command := &AuditGoodsCommand{IsPass: false}
+	events := []es.Event{&GoodsAuditedNoPassEvent{}}
+	goods := &Goods{state: Published}
 
-	tests := []struct {
-		goods   *Goods
-		command es.Command
-		event   es.Event
-	}{
-		{
-			&Goods{},
-			&PublishGoodsCommand{WithGuid: es.WithGuid{Guid: guid}, Name: "mmm", Price: 50, Quantity: 100, SN: "20160601333"},
-			&GoodsPublishedEvent{WithGuid: es.WithGuid{Guid: guid}, Name: "mmm", Price: 50, Quantity: 100, SN: "20160601333"},
-		},
-		{
-			&Goods{state: Published},
-			&AuditGoodsCommand{WithGuid: es.WithGuid{Guid: guid}, IsPass: true},
-			&GoodsAuditedPassEvent{WithGuid: es.WithGuid{Guid: guid}},
-		},
-		{
-			&Goods{state: Published},
-			&AuditGoodsCommand{WithGuid: es.WithGuid{Guid: guid}, IsPass: false},
-			&GoodsAuditedNoPassEvent{WithGuid: es.WithGuid{Guid: guid}},
-		},
-		{
-			&Goods{state: AuditedPass},
-			&OnlineGoodsCommand{WithGuid: es.WithGuid{Guid: guid}},
-			&GoodsOnlinedEvent{WithGuid: es.WithGuid{Guid: guid}},
-		},
-		{
-			&Goods{state: Onlined},
-			&OfflineGoodsCommand{WithGuid: es.WithGuid{Guid: guid}},
-			&GoodsOfflinedEvent{WithGuid: es.WithGuid{Guid: guid}},
-		},
-	}
-
-	for _, v := range tests {
-		assert.Equal(t, []es.Event{v.event}, v.goods.ProcessCommand(v.command))
-	}
+	assert.Equal(t, events, goods.ProcessAuditGoodsCommand(command))
 }
 
-func TestGoodsCommand_Panic(t *testing.T) {
-	tests := []struct {
-		goods   *Goods
-		command es.Command
-	}{
-		{
-			&Goods{},
-			&struct{ es.WithGuid }{},
-		},
-		{
-			&Goods{},
-			&AuditGoodsCommand{},
-		},
-		{
-			&Goods{state: AuditedPass},
-			&AuditGoodsCommand{},
-		},
-		{
-			&Goods{state: Onlined},
-			&AuditGoodsCommand{},
-		},
-		{
-			&Goods{state: Offlined},
-			&AuditGoodsCommand{},
-		},
-		{
-			&Goods{},
-			&OnlineGoodsCommand{},
-		},
-		{
-			&Goods{state: Published},
-			&OnlineGoodsCommand{},
-		},
-		{
-			&Goods{state: Onlined},
-			&OnlineGoodsCommand{},
-		},
-		{
-			&Goods{state: Offlined},
-			&OnlineGoodsCommand{},
-		},
-		{
-			&Goods{},
-			&OfflineGoodsCommand{},
-		},
-		{
-			&Goods{state: Published},
-			&OfflineGoodsCommand{},
-		},
-		{
-			&Goods{state: AuditedPass},
-			&OfflineGoodsCommand{},
-		},
-		{
-			&Goods{state: AuditedNoPass},
-			&OfflineGoodsCommand{},
-		},
-		{
-			&Goods{state: Offlined},
-			&OfflineGoodsCommand{},
-		},
-		{
-			&Goods{state: Offlined},
-			&PurchaseGoodsBecauseOfPurchaseCommand{},
-		},
-		{
-			&Goods{state: Published},
-			&PurchaseGoodsBecauseOfPurchaseCommand{},
-		},
-		{
-			&Goods{state: AuditedPass},
-			&PurchaseGoodsBecauseOfPurchaseCommand{},
-		},
-		{
-			&Goods{state: AuditedNoPass},
-			&PurchaseGoodsBecauseOfPurchaseCommand{},
-		},
-		{
-			&Goods{},
-			&CompletePaymetGoodsBecauseOfOrderCommand{},
-		},
-		{
-			&Goods{},
-			&FailPaymetGoodsBecauseOfOrderCommand{},
-		},
-		{
-			&Goods{},
-			&CommentGoodsBecauseOfCommentCommand{},
-		},
-	}
+func TestOnlineGoodsCommand(t *testing.T) {
+	command := &OnlineGoodsCommand{}
+	events := []es.Event{&GoodsOnlinedEvent{}}
+	goods := &Goods{state: AuditedPass}
 
-	for _, v := range tests {
-		assert.Panics(t, func() { v.goods.ProcessCommand(v.command) }, fmt.Sprintf("test panics error: command:%v", v.command))
-	}
+	assert.Equal(t, events, goods.ProcessOnlineGoodsCommand(command))
 }
 
-func TestPurchaseGoodsCommand(t *testing.T) {
+func TestOfflineGoodsCommand(t *testing.T) {
+	command := &OfflineGoodsCommand{}
+	events := []es.Event{&GoodsOfflinedEvent{}}
+	goods := &Goods{state: Onlined}
+
+	assert.Equal(t, events, goods.ProcessOfflineGoodsCommand(command))
+}
+
+func TestPurchaseGoodsBecauseOfPurchaseCommand2Successed(t *testing.T) {
 	details := PurchaseDetails{
 		User:     es.NewGuid(),
 		Goods:    es.NewGuid(),
 		Purchase: es.NewGuid(),
 		Quantity: 3,
 	}
+	command := &PurchaseGoodsBecauseOfPurchaseCommand{PurchaseDetails: details}
+	events := []es.Event{&GoodsPurchaseSuccessedEvent{PurchaseDetails: details}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234"}
 
+	assert.Equal(t, events, goods.ProcessPurchaseGoodsBecauseOfPurchaseCommand(command))
+}
+
+func TestPurchaseGoodsBecauseOfPurchaseCommand2Failured(t *testing.T) {
+	details := PurchaseDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Quantity: 3,
+	}
+	command := &PurchaseGoodsBecauseOfPurchaseCommand{PurchaseDetails: details}
+	events := []es.Event{&GoodsPurchaseFailuredEvent{PurchaseDetails: details}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 2, sn: "sn1234"}
+
+	assert.Equal(t, events, goods.ProcessPurchaseGoodsBecauseOfPurchaseCommand(command))
+}
+
+func TestPurchaseGoodsBecauseOfPurchaseCommand2FailuredOfLargeQuantity(t *testing.T) {
 	outRangeDetails := PurchaseDetails{
 		User:     es.NewGuid(),
 		Goods:    es.NewGuid(),
 		Purchase: es.NewGuid(),
 		Quantity: 4,
 	}
+	command := &PurchaseGoodsBecauseOfPurchaseCommand{PurchaseDetails: outRangeDetails}
+	events := []es.Event{&GoodsPurchaseFailuredEvent{PurchaseDetails: outRangeDetails}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 20, sn: "sn1234"}
 
-	tests := []struct {
-		goods   *Goods
-		command es.Command
-		event   es.Event
-	}{
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234"},
-			&PurchaseGoodsBecauseOfPurchaseCommand{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: details},
-			&GoodsPurchaseSuccessedEvent{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: details},
-		},
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 2, sn: "sn1234"},
-			&PurchaseGoodsBecauseOfPurchaseCommand{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: details},
-			&GoodsPurchaseFailuredEvent{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: details},
-		},
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 20, sn: "sn1234"},
-			&PurchaseGoodsBecauseOfPurchaseCommand{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: outRangeDetails},
-			&GoodsPurchaseFailuredEvent{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: outRangeDetails},
-		},
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 20, sn: "sn1234", purchaseLimit: map[es.Guid]Quantity{details.User: 1}},
-			&PurchaseGoodsBecauseOfPurchaseCommand{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: details},
-			&GoodsPurchaseFailuredEvent{WithGuid: es.WithGuid{Guid: details.Goods}, PurchaseDetails: details},
-		},
-	}
-
-	for _, v := range tests {
-		assert.Equal(t, []es.Event{v.event}, v.goods.ProcessCommand(v.command))
-	}
+	assert.Equal(t, events, goods.ProcessPurchaseGoodsBecauseOfPurchaseCommand(command))
 }
 
-func TestPaymetGoodsCommand(t *testing.T) {
-	guid, userId, orderId := es.NewGuid(), es.NewGuid(), es.NewGuid()
-
-	tests := []struct {
-		goods   *Goods
-		command es.Command
-		event   es.Event
-	}{
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234"},
-			&CompletePaymetGoodsBecauseOfOrderCommand{WithGuid: es.WithGuid{Guid: guid}, User: userId, Order: orderId, Quantity: 2},
-			&PaymetGoodsCompletedBecauseOfOrderEvent{WithGuid: es.WithGuid{Guid: guid}, User: userId, Order: orderId, Quantity: 2},
-		},
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234"},
-			&FailPaymetGoodsBecauseOfOrderCommand{WithGuid: es.WithGuid{Guid: guid}, User: userId, Order: orderId, Quantity: 2},
-			&PaymetGoodsFailedBecauseOfOrderEvent{WithGuid: es.WithGuid{Guid: guid}, User: userId, Order: orderId, Quantity: 2},
-		},
+func TestPurchaseGoodsBecauseOfPurchaseCommand2FailuredOfLargeQuantity2(t *testing.T) {
+	details := PurchaseDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Quantity: 3,
 	}
+	command := &PurchaseGoodsBecauseOfPurchaseCommand{PurchaseDetails: details}
+	events := []es.Event{&GoodsPurchaseFailuredEvent{PurchaseDetails: details}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 20, sn: "sn1234", purchaseLimit: map[es.Guid]Quantity{details.User: 1}}
 
-	for _, v := range tests {
-		assert.Equal(t, []es.Event{v.event}, v.goods.ProcessCommand(v.command))
-	}
+	assert.Equal(t, events, goods.ProcessPurchaseGoodsBecauseOfPurchaseCommand(command))
 }
 
-func TestCommentGoodsCommand(t *testing.T) {
+func TestCompletePaymetGoodsBecauseOfOrderCommand(t *testing.T) {
+	userId, orderId := es.NewGuid(), es.NewGuid()
+	command := &CompletePaymetGoodsBecauseOfOrderCommand{User: userId, Order: orderId, Quantity: 2}
+	events := []es.Event{&PaymetGoodsCompletedBecauseOfOrderEvent{User: userId, Order: orderId, Quantity: 2}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234"}
+
+	assert.Equal(t, events, goods.ProcessCompletePaymetGoodsBecauseOfOrderCommand(command))
+}
+
+func TestFailPaymetGoodsBecauseOfOrderCommand(t *testing.T) {
+	userId, orderId := es.NewGuid(), es.NewGuid()
+	command := &FailPaymetGoodsBecauseOfOrderCommand{User: userId, Order: orderId, Quantity: 2}
+	events := []es.Event{&PaymetGoodsFailedBecauseOfOrderEvent{User: userId, Order: orderId, Quantity: 2}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234"}
+
+	assert.Equal(t, events, goods.ProcessFailPaymetGoodsBecauseOfOrderCommand(command))
+}
+
+func TestCommentGoodsBecauseOfCommentCommand2Successed(t *testing.T) {
 	details := CommentDetails{
 		User:     es.NewGuid(),
 		Goods:    es.NewGuid(),
@@ -265,24 +144,105 @@ func TestCommentGoodsCommand(t *testing.T) {
 		Time:     time.Now(),
 	}
 
-	tests := []struct {
-		goods   *Goods
-		command es.Command
-		event   es.Event
-	}{
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234", comments: map[es.Guid]es.Guid{details.Purchase: details.User}},
-			&CommentGoodsBecauseOfCommentCommand{WithGuid: es.WithGuid{Guid: details.Goods}, CommentDetails: details},
-			&GoodsCommentSuccessedEvent{WithGuid: es.WithGuid{Guid: details.Goods}, CommentDetails: details},
-		},
-		{
-			&Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234", comments: map[es.Guid]es.Guid{}},
-			&CommentGoodsBecauseOfCommentCommand{WithGuid: es.WithGuid{Guid: details.Goods}, CommentDetails: details},
-			&GoodsCommentFailuredEvent{WithGuid: es.WithGuid{Guid: details.Goods}, CommentDetails: details},
-		},
+	command := &CommentGoodsBecauseOfCommentCommand{CommentDetails: details}
+	events := []es.Event{&GoodsCommentSuccessedEvent{CommentDetails: details}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234", comments: map[es.Guid]es.Guid{details.Purchase: details.User}}
+
+	assert.Equal(t, events, goods.ProcessCommentGoodsBecauseOfCommentCommand(command))
+}
+
+func TestCommentGoodsBecauseOfCommentCommand2Failured(t *testing.T) {
+	details := CommentDetails{
+		User:     es.NewGuid(),
+		Goods:    es.NewGuid(),
+		Comment:  es.NewGuid(),
+		Purchase: es.NewGuid(),
+		Content:  "dadfds",
+		Time:     time.Now(),
 	}
 
-	for _, v := range tests {
-		assert.Equal(t, []es.Event{v.event}, v.goods.ProcessCommand(v.command))
+	command := &CommentGoodsBecauseOfCommentCommand{CommentDetails: details}
+	events := []es.Event{&GoodsCommentFailuredEvent{CommentDetails: details}}
+	goods := &Goods{state: Onlined, name: "goods1", price: 30, quantity: 23, sn: "sn1234", comments: map[es.Guid]es.Guid{}}
+
+	assert.Equal(t, events, goods.ProcessCommentGoodsBecauseOfCommentCommand(command))
+}
+
+func TestAuditGoodsCommand_Panic(t *testing.T) {
+	goodses := []*Goods{
+		&Goods{},
+		&Goods{state: AuditedPass},
+		&Goods{state: Onlined},
+		&Goods{state: Offlined},
 	}
+
+	for _, goods := range goodses {
+		assert.Panics(t, func() {
+			goods.ProcessAuditGoodsCommand(&AuditGoodsCommand{})
+		})
+	}
+}
+
+func TestOnlineGoodsCommand_Panic(t *testing.T) {
+	goodses := []*Goods{
+		&Goods{},
+		&Goods{state: Published},
+		&Goods{state: Onlined},
+		&Goods{state: Offlined},
+	}
+
+	for _, goods := range goodses {
+		assert.Panics(t, func() {
+			goods.ProcessOnlineGoodsCommand(&OnlineGoodsCommand{})
+		})
+	}
+}
+
+func TestOfflineGoodsCommand_Panic(t *testing.T) {
+	goodses := []*Goods{
+		&Goods{},
+		&Goods{state: Published},
+		&Goods{state: AuditedPass},
+		&Goods{state: AuditedNoPass},
+		&Goods{state: Offlined},
+	}
+
+	for _, goods := range goodses {
+		assert.Panics(t, func() {
+			goods.ProcessOfflineGoodsCommand(&OfflineGoodsCommand{})
+		})
+	}
+}
+
+func TestPurchaseGoodsBecauseOfPurchaseCommand_Panic(t *testing.T) {
+	goodses := []*Goods{
+		&Goods{state: Offlined},
+		&Goods{state: Published},
+		&Goods{state: AuditedPass},
+		&Goods{state: AuditedNoPass},
+	}
+
+	for _, goods := range goodses {
+		assert.Panics(t, func() {
+			goods.ProcessPurchaseGoodsBecauseOfPurchaseCommand(&PurchaseGoodsBecauseOfPurchaseCommand{})
+		})
+	}
+}
+
+func TestCompletePaymetGoodsBecauseOfOrderCommand_Panic(t *testing.T) {
+	assert.Panics(t, func() {
+		new(Goods).ProcessCompletePaymetGoodsBecauseOfOrderCommand(&CompletePaymetGoodsBecauseOfOrderCommand{})
+	})
+}
+
+func TestFailPaymetGoodsBecauseOfOrderCommand_Panic(t *testing.T) {
+	assert.Panics(t, func() {
+		new(Goods).ProcessFailPaymetGoodsBecauseOfOrderCommand(&FailPaymetGoodsBecauseOfOrderCommand{})
+	})
+}
+
+func TestCommentGoodsBecauseOfCommentCommand_Panic(t *testing.T) {
+	assert.Panics(t, func() {
+		new(Goods).ProcessCommentGoodsBecauseOfCommentCommand(&CommentGoodsBecauseOfCommentCommand{})
+	})
 }

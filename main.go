@@ -3,11 +3,18 @@ package main
 import (
 	"fmt"
 	ES "github.com/sunrongya/eventsourcing"
-	"sync"
 	"github.com/sunrongya/milife/paymet"
 	"github.com/sunrongya/milife/trade"
+	"sync"
 	"time"
 )
+
+type NullPaymetService struct {
+}
+
+func (n *NullPaymetService) Transfer(amount trade.Money, userAccount, managedAccount trade.BankAccount, completeFn func(bool)) {
+	completeFn(true)
+}
 
 func testTrade() {
 	var store = ES.NewInMemStore()
@@ -21,12 +28,14 @@ func testTrade() {
 	commentService := trade.NewGoodsCommentService(store)
 	eventbus := ES.NewInternalEventBus(store)
 
-	eh := trade.NewEventHandler(goodsService.CommandChannel(), purchaseService.CommandChannel(), commentService.CommandChannel())
-	paymetHandler := trade.NewPaymetEventHandler(new(trade.NullPaymetService), goodsService.CommandChannel(), orderService.CommandChannel())
+	purchaseHandler := trade.NewPurchaseEventHandler(goodsService.CommandChannel(), purchaseService.CommandChannel())
+	commentHandler := trade.NewCommentEventHandler(goodsService.CommandChannel(), commentService.CommandChannel())
+	paymetHandler := trade.NewPaymetEventHandler(new(NullPaymetService), goodsService.CommandChannel(), orderService.CommandChannel())
 	readRepository := ES.NewMemoryReadRepository()
 	goodsProjector := trade.NewGoodsProjector(readRepository)
 
-	eventbus.RegisterHandlers(eh)
+	eventbus.RegisterHandlers(purchaseHandler)
+	eventbus.RegisterHandlers(commentHandler)
 	eventbus.RegisterHandlers(paymetHandler)
 	eventbus.RegisterHandlers(goodsProjector)
 

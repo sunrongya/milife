@@ -1,7 +1,7 @@
 package paymet
 
 import (
-	"fmt"
+	//"fmt"
 	"github.com/stretchr/testify/assert"
 	es "github.com/sunrongya/eventsourcing"
 	"testing"
@@ -9,115 +9,95 @@ import (
 
 func TestAccountRestore(t *testing.T) {
 	acc := &Account{}
-	acc.ApplyEvents([]es.Event{
-		&AccountOpenedEvent{Name: "sry", Card: "955884334444", Balance: 100},
-		&AccountCreditedEvent{Amount: 100},
-		&AccountDebitedEvent{Amount: 50},
-		&AccountDebitFailedEvent{},
-	})
+	acc.HandleAccountOpenedEvent(&AccountOpenedEvent{Name: "sry", Card: "955884334444", Balance: 100})
+	acc.HandleAccountCreditedEvent(&AccountCreditedEvent{Amount: 100})
+	acc.HandleAccountDebitedEvent(&AccountDebitedEvent{Amount: 50})
+	acc.HandleAccountDebitFailedEvent(&AccountDebitFailedEvent{})
+
 	assert.Equal(t, "sry", acc.name)
 	assert.Equal(t, BankCard("955884334444"), acc.card)
 	assert.Equal(t, Money(150), acc.balance)
-	assert.Equal(t, 4, acc.Version())
 }
 
-func TestAccountRestoreForErrorEvent(t *testing.T) {
-	assert.Panics(t, func() {
-		NewAccount().ApplyEvents([]es.Event{&struct{ es.WithGuid }{}})
-	}, "restore error event must panic error")
+func TestOpenAccountCommand(t *testing.T) {
+	command := &OpenAccountCommand{Name: "sry", Card: "955884334444", Balance: 100}
+	events := []es.Event{&AccountOpenedEvent{Name: "sry", Card: "955884334444", Balance: 100}}
+
+	assert.Equal(t, events, new(Account).ProccessOpenAccountCommand(command), "")
 }
 
-func TestCheckApplyEvents(t *testing.T) {
-	events := []es.Event{
-		&AccountOpenedEvent{},
-		&AccountCreditedEvent{},
-		&AccountDebitedEvent{},
-		&AccountDebitFailedEvent{},
-		&AccountDebitedBecauseOfTransferEvent{},
-		&AccountDebitedBecauseOfTransferFailedEvent{},
-		&AccountCreditedBecauseOfTransferEvent{},
+func TestCreditAccountCommand(t *testing.T) {
+	command := &CreditAccountCommand{Amount: 100}
+	events := []es.Event{&AccountCreditedEvent{Amount: 100}}
+
+	assert.Equal(t, events, new(Account).ProccessCreditAccountCommand(command), "")
+}
+
+func TestDebitAccountCommand(t *testing.T) {
+	tests := []struct {
+		account *Account
+		command *DebitAccountCommand
+		events  []es.Event
+	}{
+		{
+			&Account{balance: 50},
+			&DebitAccountCommand{Amount: 50},
+			[]es.Event{&AccountDebitedEvent{Amount: 50}},
+		},
+		{
+			&Account{balance: 150},
+			&DebitAccountCommand{Amount: 50},
+			[]es.Event{&AccountDebitedEvent{Amount: 50}},
+		},
+		{
+			&Account{balance: 100},
+			&DebitAccountCommand{Amount: 101},
+			[]es.Event{&AccountDebitFailedEvent{}},
+		},
 	}
-	assert.NotPanics(t, func() { NewAccount().ApplyEvents(events) }, "Check Process All Event")
+	for _, v := range tests {
+		assert.Equal(t, v.events, v.account.ProccessDebitAccountCommand(v.command), "")
+	}
 }
 
-func TestAccountCommand(t *testing.T) {
-	details1 := mTDetails{
+func TestDebitAccountBecauseOfTransferCommand(t *testing.T) {
+	details := mTDetails{
 		From:        es.NewGuid(),
 		To:          es.NewGuid(),
 		Amount:      40,
 		Transaction: es.NewGuid(),
 	}
-	details2 := mTDetails{
+	command := &DebitAccountBecauseOfTransferCommand{mTDetails: details}
+	events := []es.Event{&AccountDebitedBecauseOfTransferEvent{mTDetails: details}}
+	account := &Account{balance: 45}
+
+	assert.Equal(t, events, account.ProccessDebitAccountBecauseOfTransferCommand(command), "")
+}
+
+func TestDebitAccountBecauseOfTransferCommand2Failed(t *testing.T) {
+	details := mTDetails{
 		From:        es.NewGuid(),
 		To:          es.NewGuid(),
 		Amount:      50,
 		Transaction: es.NewGuid(),
 	}
+	command := &DebitAccountBecauseOfTransferCommand{mTDetails: details}
+	events := []es.Event{&AccountDebitedBecauseOfTransferFailedEvent{mTDetails: details}}
+	account := &Account{balance: 45}
 
-	tests := []struct {
-		account *Account
-		command es.Command
-		event   es.Event
-	}{
-		{
-			&Account{},
-			&OpenAccountCommand{WithGuid: es.WithGuid{Guid: "1234"}, Name: "sry", Card: "955884334444", Balance: 100},
-			&AccountOpenedEvent{WithGuid: es.WithGuid{Guid: "1234"}, Name: "sry", Card: "955884334444", Balance: 100},
-		},
-		{
-			&Account{},
-			&CreditAccountCommand{Amount: 100},
-			&AccountCreditedEvent{Amount: 100},
-		},
-		{
-			&Account{balance: 50},
-			&DebitAccountCommand{Amount: 50},
-			&AccountDebitedEvent{Amount: 50},
-		},
-		{
-			&Account{balance: 100},
-			&DebitAccountCommand{Amount: 50},
-			&AccountDebitedEvent{Amount: 50},
-		},
-		{
-			&Account{balance: 100},
-			&DebitAccountCommand{Amount: 101},
-			&AccountDebitFailedEvent{},
-		},
-		{
-			&Account{balance: 45},
-			&DebitAccountBecauseOfTransferCommand{WithGuid: es.WithGuid{details1.From}, mTDetails: details1},
-			&AccountDebitedBecauseOfTransferEvent{WithGuid: es.WithGuid{details1.From}, mTDetails: details1},
-		},
-		{
-			&Account{balance: 40},
-			&DebitAccountBecauseOfTransferCommand{WithGuid: es.WithGuid{details2.From}, mTDetails: details2},
-			&AccountDebitedBecauseOfTransferFailedEvent{WithGuid: es.WithGuid{details2.From}, mTDetails: details2},
-		},
-		{
-			&Account{balance: 100},
-			&CreditAccountBecauseOfTransferCommand{WithGuid: es.WithGuid{details1.To}, mTDetails: details1},
-			&AccountCreditedBecauseOfTransferEvent{WithGuid: es.WithGuid{details1.To}, mTDetails: details1},
-		},
-	}
-
-	for _, v := range tests {
-		assert.Equal(t, []es.Event{v.event}, v.account.ProcessCommand(v.command))
-	}
+	assert.Equal(t, events, account.ProccessDebitAccountBecauseOfTransferCommand(command), "")
 }
 
-func TestAccountCommand_Panic(t *testing.T) {
-	tests := []struct {
-		account *Account
-		command es.Command
-	}{
-		{
-			&Account{},
-			&struct{ es.WithGuid }{},
-		},
+func TestCreditAccountBecauseOfTransferCommand(t *testing.T) {
+	details := mTDetails{
+		From:        es.NewGuid(),
+		To:          es.NewGuid(),
+		Amount:      40,
+		Transaction: es.NewGuid(),
 	}
+	command := &CreditAccountBecauseOfTransferCommand{mTDetails: details}
+	events := []es.Event{&AccountCreditedBecauseOfTransferEvent{mTDetails: details}}
+	account := &Account{balance: 100}
 
-	for _, v := range tests {
-		assert.Panics(t, func() { v.account.ProcessCommand(v.command) }, fmt.Sprintf("test panics error: command:%v", v.command))
-	}
+	assert.Equal(t, events, account.ProccessCreditAccountBecauseOfTransferCommand(command), "")
 }
