@@ -15,7 +15,7 @@ func NewTransferService(store es.EventStore) *TransferService {
 	return acc
 }
 
-func (a *TransferService) Transfer(amount Money, from, to es.Guid) es.Guid {
+func (this *TransferService) Transfer(amount Money, from, to es.Guid) es.Guid {
 	guid := es.NewGuid()
 	c := &CreateTransferCommand{
 		WithGuid: es.WithGuid{guid},
@@ -26,6 +26,6 @@ func (a *TransferService) Transfer(amount Money, from, to es.Guid) es.Guid {
 			Transaction: guid,
 		},
 	}
-	a.PublishCommand(c)
+	this.PublishCommand(c)
 	return guid
 }

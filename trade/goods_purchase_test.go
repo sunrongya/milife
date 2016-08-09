@@ -18,7 +18,7 @@ func TestGoodsPurchaseRestore(t *testing.T) {
 	purchase.HandleGoodsPurchaseCompletedEvent(&GoodsPurchaseCompletedEvent{PurchaseDetails: details})
 
 	assert.Equal(t, details, purchase.PurchaseDetails, "PurchaseDetails error")
-	assert.Equal(t, PurchaseCompleted, purchase.state, "state error")
+	assert.Equal(t, PurchaseCompleted, purchase._state, "state error")
 }
 
 func TestCreateGoodsPurchaseCommand(t *testing.T) {
@@ -44,7 +44,7 @@ func TestCompleteGoodsPurchaseCommand(t *testing.T) {
 	}
 	command := &CompleteGoodsPurchaseCommand{PurchaseDetails: details}
 	events := []es.Event{&GoodsPurchaseCompletedEvent{PurchaseDetails: details}}
-	goodsPurchase := &GoodsPurchase{state: PurchaseStarted}
+	goodsPurchase := &GoodsPurchase{_state: PurchaseStarted}
 
 	assert.Equal(t, events, goodsPurchase.ProcessCompleteGoodsPurchaseCommand(command))
 }
@@ -58,7 +58,7 @@ func TestFailGoodsPurchaseCommand(t *testing.T) {
 	}
 	command := &FailGoodsPurchaseCommand{PurchaseDetails: details}
 	events := []es.Event{&GoodsPurchaseFailedEvent{PurchaseDetails: details}}
-	goodsPurchase := &GoodsPurchase{state: PurchaseStarted}
+	goodsPurchase := &GoodsPurchase{_state: PurchaseStarted}
 
 	assert.Equal(t, events, goodsPurchase.ProcessFailGoodsPurchaseCommand(command))
 }
@@ -66,8 +66,8 @@ func TestFailGoodsPurchaseCommand(t *testing.T) {
 func TestCompleteGoodsPurchaseCommand_Panic(t *testing.T) {
 	goodsPurchases := []*GoodsPurchase{
 		&GoodsPurchase{},
-		&GoodsPurchase{state: PurchaseCompleted},
-		&GoodsPurchase{state: PurchaseFailed},
+		&GoodsPurchase{_state: PurchaseCompleted},
+		&GoodsPurchase{_state: PurchaseFailed},
 	}
 	for _, goodsPurchase := range goodsPurchases {
 		assert.Panics(t, func() {
@@ -79,8 +79,8 @@ func TestCompleteGoodsPurchaseCommand_Panic(t *testing.T) {
 func TestFailGoodsPurchaseCommand_Panic(t *testing.T) {
 	goodsPurchases := []*GoodsPurchase{
 		&GoodsPurchase{},
-		&GoodsPurchase{state: PurchaseCompleted},
-		&GoodsPurchase{state: PurchaseFailed},
+		&GoodsPurchase{_state: PurchaseCompleted},
+		&GoodsPurchase{_state: PurchaseFailed},
 	}
 	for _, goodsPurchase := range goodsPurchases {
 		assert.Panics(t, func() {

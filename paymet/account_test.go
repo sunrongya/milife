@@ -14,23 +14,23 @@ func TestAccountRestore(t *testing.T) {
 	acc.HandleAccountDebitedEvent(&AccountDebitedEvent{Amount: 50})
 	acc.HandleAccountDebitFailedEvent(&AccountDebitFailedEvent{})
 
-	assert.Equal(t, "sry", acc.name)
-	assert.Equal(t, BankCard("955884334444"), acc.card)
-	assert.Equal(t, Money(150), acc.balance)
+	assert.Equal(t, "sry", acc._name)
+	assert.Equal(t, BankCard("955884334444"), acc._card)
+	assert.Equal(t, Money(150), acc._balance)
 }
 
 func TestOpenAccountCommand(t *testing.T) {
 	command := &OpenAccountCommand{Name: "sry", Card: "955884334444", Balance: 100}
 	events := []es.Event{&AccountOpenedEvent{Name: "sry", Card: "955884334444", Balance: 100}}
 
-	assert.Equal(t, events, new(Account).ProccessOpenAccountCommand(command), "")
+	assert.Equal(t, events, new(Account).ProcessOpenAccountCommand(command), "")
 }
 
 func TestCreditAccountCommand(t *testing.T) {
 	command := &CreditAccountCommand{Amount: 100}
 	events := []es.Event{&AccountCreditedEvent{Amount: 100}}
 
-	assert.Equal(t, events, new(Account).ProccessCreditAccountCommand(command), "")
+	assert.Equal(t, events, new(Account).ProcessCreditAccountCommand(command), "")
 }
 
 func TestDebitAccountCommand(t *testing.T) {
@@ -40,23 +40,23 @@ func TestDebitAccountCommand(t *testing.T) {
 		events  []es.Event
 	}{
 		{
-			&Account{balance: 50},
+			&Account{_balance: 50},
 			&DebitAccountCommand{Amount: 50},
 			[]es.Event{&AccountDebitedEvent{Amount: 50}},
 		},
 		{
-			&Account{balance: 150},
+			&Account{_balance: 150},
 			&DebitAccountCommand{Amount: 50},
 			[]es.Event{&AccountDebitedEvent{Amount: 50}},
 		},
 		{
-			&Account{balance: 100},
+			&Account{_balance: 100},
 			&DebitAccountCommand{Amount: 101},
 			[]es.Event{&AccountDebitFailedEvent{}},
 		},
 	}
 	for _, v := range tests {
-		assert.Equal(t, v.events, v.account.ProccessDebitAccountCommand(v.command), "")
+		assert.Equal(t, v.events, v.account.ProcessDebitAccountCommand(v.command), "")
 	}
 }
 
@@ -69,9 +69,9 @@ func TestDebitAccountBecauseOfTransferCommand(t *testing.T) {
 	}
 	command := &DebitAccountBecauseOfTransferCommand{mTDetails: details}
 	events := []es.Event{&AccountDebitedBecauseOfTransferEvent{mTDetails: details}}
-	account := &Account{balance: 45}
+	account := &Account{_balance: 45}
 
-	assert.Equal(t, events, account.ProccessDebitAccountBecauseOfTransferCommand(command), "")
+	assert.Equal(t, events, account.ProcessDebitAccountBecauseOfTransferCommand(command), "")
 }
 
 func TestDebitAccountBecauseOfTransferCommand2Failed(t *testing.T) {
@@ -83,9 +83,9 @@ func TestDebitAccountBecauseOfTransferCommand2Failed(t *testing.T) {
 	}
 	command := &DebitAccountBecauseOfTransferCommand{mTDetails: details}
 	events := []es.Event{&AccountDebitedBecauseOfTransferFailedEvent{mTDetails: details}}
-	account := &Account{balance: 45}
+	account := &Account{_balance: 45}
 
-	assert.Equal(t, events, account.ProccessDebitAccountBecauseOfTransferCommand(command), "")
+	assert.Equal(t, events, account.ProcessDebitAccountBecauseOfTransferCommand(command), "")
 }
 
 func TestCreditAccountBecauseOfTransferCommand(t *testing.T) {
@@ -97,7 +97,7 @@ func TestCreditAccountBecauseOfTransferCommand(t *testing.T) {
 	}
 	command := &CreditAccountBecauseOfTransferCommand{mTDetails: details}
 	events := []es.Event{&AccountCreditedBecauseOfTransferEvent{mTDetails: details}}
-	account := &Account{balance: 100}
+	account := &Account{_balance: 100}
 
-	assert.Equal(t, events, account.ProccessCreditAccountBecauseOfTransferCommand(command), "")
+	assert.Equal(t, events, account.ProcessCreditAccountBecauseOfTransferCommand(command), "")
 }

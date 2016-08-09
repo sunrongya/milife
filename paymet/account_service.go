@@ -15,7 +15,7 @@ func NewAccountService(store es.EventStore) *AccountService {
 	return acc
 }
 
-func (a *AccountService) OpenAccount(name, card string, balance int) es.Guid {
+func (this *AccountService) OpenAccount(name, card string, balance int) es.Guid {
 	guid := es.NewGuid()
 	c := &OpenAccountCommand{
 		WithGuid: es.WithGuid{guid},
@@ -23,22 +23,22 @@ func (a *AccountService) OpenAccount(name, card string, balance int) es.Guid {
 		Card:     BankCard(card),
 		Balance:  Money(balance),
 	}
-	a.PublishCommand(c)
+	this.PublishCommand(c)
 	return guid
 }
 
-func (a *AccountService) CreditAccount(guid es.Guid, amount int) {
+func (this *AccountService) CreditAccount(guid es.Guid, amount int) {
 	c := &CreditAccountCommand{
 		WithGuid: es.WithGuid{guid},
 		Amount:   Money(amount),
 	}
-	a.PublishCommand(c)
+	this.PublishCommand(c)
 }
 
-func (a *AccountService) DebitAccount(guid es.Guid, amount int) {
+func (this *AccountService) DebitAccount(guid es.Guid, amount int) {
 	c := &DebitAccountCommand{
 		WithGuid: es.WithGuid{guid},
 		Amount:   Money(amount),
 	}
-	a.PublishCommand(c)
+	this.PublishCommand(c)
 }

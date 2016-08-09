@@ -6,9 +6,9 @@ import (
 
 type Account struct {
 	es.BaseAggregate
-	name    string
-	card    BankCard
-	balance Money
+	_name    string
+	_card    BankCard
+	_balance Money
 }
 
 var _ es.Aggregate = (*Account)(nil)
@@ -17,7 +17,7 @@ func NewAccount() es.Aggregate {
 	return &Account{}
 }
 
-func (a *Account) ProccessOpenAccountCommand(command *OpenAccountCommand) []es.Event {
+func (this *Account) ProcessOpenAccountCommand(command *OpenAccountCommand) []es.Event {
 	return []es.Event{
 		&AccountOpenedEvent{
 			Name:    command.Name,
@@ -27,50 +27,50 @@ func (a *Account) ProccessOpenAccountCommand(command *OpenAccountCommand) []es.E
 	}
 }
 
-func (a *Account) ProccessCreditAccountCommand(command *CreditAccountCommand) []es.Event {
+func (this *Account) ProcessCreditAccountCommand(command *CreditAccountCommand) []es.Event {
 	return []es.Event{&AccountCreditedEvent{Amount: command.Amount}}
 }
 
-func (a *Account) ProccessDebitAccountCommand(command *DebitAccountCommand) []es.Event {
-	if a.balance < command.Amount {
+func (this *Account) ProcessDebitAccountCommand(command *DebitAccountCommand) []es.Event {
+	if this._balance < command.Amount {
 		return []es.Event{&AccountDebitFailedEvent{}}
 	}
 	return []es.Event{&AccountDebitedEvent{Amount: command.Amount}}
 }
 
-func (a *Account) ProccessDebitAccountBecauseOfTransferCommand(command *DebitAccountBecauseOfTransferCommand) []es.Event {
-	if a.balance < command.Amount {
+func (this *Account) ProcessDebitAccountBecauseOfTransferCommand(command *DebitAccountBecauseOfTransferCommand) []es.Event {
+	if this._balance < command.Amount {
 		return []es.Event{&AccountDebitedBecauseOfTransferFailedEvent{mTDetails: command.mTDetails}}
 	}
 	return []es.Event{&AccountDebitedBecauseOfTransferEvent{mTDetails: command.mTDetails}}
 }
 
-func (a *Account) ProccessCreditAccountBecauseOfTransferCommand(command *CreditAccountBecauseOfTransferCommand) []es.Event {
+func (this *Account) ProcessCreditAccountBecauseOfTransferCommand(command *CreditAccountBecauseOfTransferCommand) []es.Event {
 	return []es.Event{&AccountCreditedBecauseOfTransferEvent{mTDetails: command.mTDetails}}
 }
 
-func (a *Account) HandleAccountOpenedEvent(event *AccountOpenedEvent) {
-	a.name, a.card, a.balance = event.Name, event.Card, event.Balance
+func (this *Account) HandleAccountOpenedEvent(event *AccountOpenedEvent) {
+	this._name, this._card, this._balance = event.Name, event.Card, event.Balance
 }
 
-func (a *Account) HandleAccountCreditedEvent(event *AccountCreditedEvent) {
-	a.balance += event.Amount
+func (this *Account) HandleAccountCreditedEvent(event *AccountCreditedEvent) {
+	this._balance += event.Amount
 }
 
-func (a *Account) HandleAccountDebitedEvent(event *AccountDebitedEvent) {
-	a.balance -= event.Amount
+func (this *Account) HandleAccountDebitedEvent(event *AccountDebitedEvent) {
+	this._balance -= event.Amount
 }
 
-func (a *Account) HandleAccountDebitFailedEvent(event *AccountDebitFailedEvent) {
+func (this *Account) HandleAccountDebitFailedEvent(event *AccountDebitFailedEvent) {
 }
 
-func (a *Account) HandleAccountDebitedBecauseOfTransferEvent(event *AccountDebitedBecauseOfTransferEvent) {
-	a.balance -= event.Amount
+func (this *Account) HandleAccountDebitedBecauseOfTransferEvent(event *AccountDebitedBecauseOfTransferEvent) {
+	this._balance -= event.Amount
 }
 
-func (a *Account) HandleAccountDebitedBecauseOfTransferFailedEvent(event *AccountDebitedBecauseOfTransferFailedEvent) {
+func (this *Account) HandleAccountDebitedBecauseOfTransferFailedEvent(event *AccountDebitedBecauseOfTransferFailedEvent) {
 }
 
-func (a *Account) HandleAccountCreditedBecauseOfTransferEvent(event *AccountCreditedBecauseOfTransferEvent) {
-	a.balance += event.Amount
+func (this *Account) HandleAccountCreditedBecauseOfTransferEvent(event *AccountCreditedBecauseOfTransferEvent) {
+	this._balance += event.Amount
 }

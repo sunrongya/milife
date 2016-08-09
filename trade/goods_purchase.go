@@ -16,7 +16,7 @@ const (
 type GoodsPurchase struct {
 	es.BaseAggregate
 	PurchaseDetails
-	state PurchaseState
+	_state PurchaseState
 }
 
 type PurchaseDetails struct {
@@ -32,32 +32,32 @@ func NewGoodsPurchase() es.Aggregate {
 	return &GoodsPurchase{}
 }
 
-func (g *GoodsPurchase) ProcessCreateGoodsPurchaseCommand(command *CreateGoodsPurchaseCommand) []es.Event {
+func (this *GoodsPurchase) ProcessCreateGoodsPurchaseCommand(command *CreateGoodsPurchaseCommand) []es.Event {
 	return []es.Event{&GoodsPurchaseCreatedEvent{PurchaseDetails: command.PurchaseDetails}}
 }
 
-func (g *GoodsPurchase) ProcessCompleteGoodsPurchaseCommand(command *CompleteGoodsPurchaseCommand) []es.Event {
-	if g.state != PurchaseStarted {
-		panic(fmt.Errorf("Can't process CompleteGoodsPurchaseCommand of state:%s", g.state))
+func (this *GoodsPurchase) ProcessCompleteGoodsPurchaseCommand(command *CompleteGoodsPurchaseCommand) []es.Event {
+	if this._state != PurchaseStarted {
+		panic(fmt.Errorf("Can't process CompleteGoodsPurchaseCommand of state:%s", this._state))
 	}
 	return []es.Event{&GoodsPurchaseCompletedEvent{PurchaseDetails: command.PurchaseDetails}}
 }
 
-func (g *GoodsPurchase) ProcessFailGoodsPurchaseCommand(command *FailGoodsPurchaseCommand) []es.Event {
-	if g.state != PurchaseStarted {
-		panic(fmt.Errorf("Can't process FailGoodsPurchaseCommand of state:%s", g.state))
+func (this *GoodsPurchase) ProcessFailGoodsPurchaseCommand(command *FailGoodsPurchaseCommand) []es.Event {
+	if this._state != PurchaseStarted {
+		panic(fmt.Errorf("Can't process FailGoodsPurchaseCommand of state:%s", this._state))
 	}
 	return []es.Event{&GoodsPurchaseFailedEvent{PurchaseDetails: command.PurchaseDetails}}
 }
 
-func (g *GoodsPurchase) HandleGoodsPurchaseCreatedEvent(event *GoodsPurchaseCreatedEvent) {
-	g.PurchaseDetails, g.state = event.PurchaseDetails, PurchaseStarted
+func (this *GoodsPurchase) HandleGoodsPurchaseCreatedEvent(event *GoodsPurchaseCreatedEvent) {
+	this.PurchaseDetails, this._state = event.PurchaseDetails, PurchaseStarted
 }
 
-func (g *GoodsPurchase) HandleGoodsPurchaseCompletedEvent(event *GoodsPurchaseCompletedEvent) {
-	g.state = PurchaseCompleted
+func (this *GoodsPurchase) HandleGoodsPurchaseCompletedEvent(event *GoodsPurchaseCompletedEvent) {
+	this._state = PurchaseCompleted
 }
 
-func (g *GoodsPurchase) HandleGoodsPurchaseFailedEvent(event *GoodsPurchaseFailedEvent) {
-	g.state = PurchaseFailed
+func (this *GoodsPurchase) HandleGoodsPurchaseFailedEvent(event *GoodsPurchaseFailedEvent) {
+	this._state = PurchaseFailed
 }

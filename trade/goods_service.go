@@ -15,7 +15,7 @@ func NewGoodsService(store es.EventStore) *GoodsService {
 	return service
 }
 
-func (g *GoodsService) PublishGoods(name string, price Money, quantity Quantity, sn SN) es.Guid {
+func (this *GoodsService) PublishGoods(name string, price Money, quantity Quantity, sn SN) es.Guid {
 	guid := es.NewGuid()
 	c := &PublishGoodsCommand{
 		WithGuid: es.WithGuid{guid},
@@ -24,28 +24,28 @@ func (g *GoodsService) PublishGoods(name string, price Money, quantity Quantity,
 		Quantity: quantity,
 		SN:       sn,
 	}
-	g.PublishCommand(c)
+	this.PublishCommand(c)
 	return guid
 }
 
-func (g *GoodsService) AuditGoods(guid es.Guid, isPass bool) {
+func (this *GoodsService) AuditGoods(guid es.Guid, isPass bool) {
 	c := &AuditGoodsCommand{
 		WithGuid: es.WithGuid{guid},
 		IsPass:   isPass,
 	}
-	g.PublishCommand(c)
+	this.PublishCommand(c)
 }
 
-func (g *GoodsService) OnlineGoods(guid es.Guid) {
+func (this *GoodsService) OnlineGoods(guid es.Guid) {
 	c := &OnlineGoodsCommand{
 		WithGuid: es.WithGuid{guid},
 	}
-	g.PublishCommand(c)
+	this.PublishCommand(c)
 }
 
-func (g *GoodsService) OfflineGoods(guid es.Guid) {
+func (this *GoodsService) OfflineGoods(guid es.Guid) {
 	c := &OfflineGoodsCommand{
 		WithGuid: es.WithGuid{guid},
 	}
-	g.PublishCommand(c)
+	this.PublishCommand(c)
 }

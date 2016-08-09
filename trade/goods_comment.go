@@ -17,7 +17,7 @@ const (
 type GoodsComment struct {
 	es.BaseAggregate
 	CommentDetails
-	state CommentState
+	_state CommentState
 }
 
 var _ es.Aggregate = (*GoodsComment)(nil)
@@ -35,32 +35,32 @@ type CommentDetails struct {
 	Time     time.Time
 }
 
-func (g *GoodsComment) ProcessCreateGoodsCommentCommand(command *CreateGoodsCommentCommand) []es.Event {
+func (this *GoodsComment) ProcessCreateGoodsCommentCommand(command *CreateGoodsCommentCommand) []es.Event {
 	return []es.Event{&GoodsCommentCreatedEvent{CommentDetails: command.CommentDetails}}
 }
 
-func (g *GoodsComment) ProcessCompleteGoodsCommentCommand(command *CompleteGoodsCommentCommand) []es.Event {
-	if g.state != CommentStarted {
-		panic(fmt.Errorf("Can't process CompleteGoodsCommentCommand of state:%s", g.state))
+func (this *GoodsComment) ProcessCompleteGoodsCommentCommand(command *CompleteGoodsCommentCommand) []es.Event {
+	if this._state != CommentStarted {
+		panic(fmt.Errorf("Can't process CompleteGoodsCommentCommand of state:%s", this._state))
 	}
 	return []es.Event{&GoodsCommentCompletedEvent{CommentDetails: command.CommentDetails}}
 }
 
-func (g *GoodsComment) ProcessFailGoodsCommentCommand(command *FailGoodsCommentCommand) []es.Event {
-	if g.state != CommentStarted {
-		panic(fmt.Errorf("Can't process FailGoodsCommentCommand of state:%s", g.state))
+func (this *GoodsComment) ProcessFailGoodsCommentCommand(command *FailGoodsCommentCommand) []es.Event {
+	if this._state != CommentStarted {
+		panic(fmt.Errorf("Can't process FailGoodsCommentCommand of state:%s", this._state))
 	}
 	return []es.Event{&GoodsCommentFailedEvent{CommentDetails: command.CommentDetails}}
 }
 
-func (g *GoodsComment) HandleGoodsCommentCreatedEvent(event *GoodsCommentCreatedEvent) {
-	g.CommentDetails, g.state = event.CommentDetails, CommentStarted
+func (this *GoodsComment) HandleGoodsCommentCreatedEvent(event *GoodsCommentCreatedEvent) {
+	this.CommentDetails, this._state = event.CommentDetails, CommentStarted
 }
 
-func (g *GoodsComment) HandleGoodsCommentCompletedEvent(event *GoodsCommentCompletedEvent) {
-	g.state = CommentCompleted
+func (this *GoodsComment) HandleGoodsCommentCompletedEvent(event *GoodsCommentCompletedEvent) {
+	this._state = CommentCompleted
 }
 
-func (g *GoodsComment) HandleGoodsCommentFailedEvent(event *GoodsCommentFailedEvent) {
-	g.state = CommentFailed
+func (this *GoodsComment) HandleGoodsCommentFailedEvent(event *GoodsCommentFailedEvent) {
+	this._state = CommentFailed
 }

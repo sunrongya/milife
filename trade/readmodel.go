@@ -24,14 +24,14 @@ type RGoods struct {
 }
 
 type GoodsProjector struct {
-	repository es.ReadRepository
+	_repository es.ReadRepository
 }
 
 func NewGoodsProjector(repository es.ReadRepository) *GoodsProjector {
-	return &GoodsProjector{repository: repository}
+	return &GoodsProjector{_repository: repository}
 }
 
-func (g *GoodsProjector) HandleGoodsPublishedEvent(event *GoodsPublishedEvent) {
+func (this *GoodsProjector) HandleGoodsPublishedEvent(event *GoodsPublishedEvent) {
 	goods := &RGoods{
 		Id:       event.GetGuid(),
 		Name:     event.Name,
@@ -40,35 +40,35 @@ func (g *GoodsProjector) HandleGoodsPublishedEvent(event *GoodsPublishedEvent) {
 		SN:       event.SN,
 		State:    Published,
 	}
-	g.repository.Save(goods.Id, goods)
+	this._repository.Save(goods.Id, goods)
 }
 
-func (g *GoodsProjector) HandleGoodsAuditedPassEvent(event *GoodsAuditedPassEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandleGoodsAuditedPassEvent(event *GoodsAuditedPassEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		goods.State = AuditedPass
 	})
 }
 
-func (g *GoodsProjector) HandleGoodsAuditedNoPassEvent(event *GoodsAuditedNoPassEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandleGoodsAuditedNoPassEvent(event *GoodsAuditedNoPassEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		goods.State = AuditedNoPass
 	})
 }
 
-func (g *GoodsProjector) HandleGoodsOnlinedEvent(event *GoodsOnlinedEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandleGoodsOnlinedEvent(event *GoodsOnlinedEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		goods.State = Onlined
 	})
 }
 
-func (g *GoodsProjector) HandleGoodsOfflinedEvent(event *GoodsOfflinedEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandleGoodsOfflinedEvent(event *GoodsOfflinedEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		goods.State = Offlined
 	})
 }
 
-func (g *GoodsProjector) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		goods.Purchases += event.Quantity
 		goods.SuccessedPurchaseRecords = append(goods.SuccessedPurchaseRecords, &PurchaseRecord{
 			Quantity: event.Quantity,
@@ -78,8 +78,8 @@ func (g *GoodsProjector) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseS
 	})
 }
 
-func (g *GoodsProjector) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		goods.FailuredPurchaseRecords = append(goods.FailuredPurchaseRecords, &PurchaseRecord{
 			Quantity: event.Quantity,
 			User:     event.User,
@@ -88,14 +88,14 @@ func (g *GoodsProjector) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFa
 	})
 }
 
-func (g *GoodsProjector) HandleGoodsCommentSuccessedEvent(event *GoodsCommentSuccessedEvent) {
+func (this *GoodsProjector) HandleGoodsCommentSuccessedEvent(event *GoodsCommentSuccessedEvent) {
 }
 
-func (g *GoodsProjector) HandleGoodsCommentFailuredEvent(event *GoodsCommentFailuredEvent) {
+func (this *GoodsProjector) HandleGoodsCommentFailuredEvent(event *GoodsCommentFailuredEvent) {
 }
 
-func (g *GoodsProjector) HandlePaymetGoodsCompletedBecauseOfOrderEvent(event *PaymetGoodsCompletedBecauseOfOrderEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandlePaymetGoodsCompletedBecauseOfOrderEvent(event *PaymetGoodsCompletedBecauseOfOrderEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		for _, record := range goods.SuccessedPurchaseRecords {
 			if record.Purchase == event.Purchase {
 				record.OrderState = OrderPaymetCompleted
@@ -104,8 +104,8 @@ func (g *GoodsProjector) HandlePaymetGoodsCompletedBecauseOfOrderEvent(event *Pa
 	})
 }
 
-func (g *GoodsProjector) HandlePaymetGoodsFailedBecauseOfOrderEvent(event *PaymetGoodsFailedBecauseOfOrderEvent) {
-	g.do(event.GetGuid(), func(goods *RGoods) {
+func (this *GoodsProjector) HandlePaymetGoodsFailedBecauseOfOrderEvent(event *PaymetGoodsFailedBecauseOfOrderEvent) {
+	this.do(event.GetGuid(), func(goods *RGoods) {
 		for _, record := range goods.SuccessedPurchaseRecords {
 			if record.Purchase == event.Purchase {
 				record.OrderState = OrderPaymetFailed
@@ -115,12 +115,12 @@ func (g *GoodsProjector) HandlePaymetGoodsFailedBecauseOfOrderEvent(event *Payme
 	})
 }
 
-func (g *GoodsProjector) do(id es.Guid, assignRGoodsFn func(*RGoods)) {
-	i, err := g.repository.Find(id)
+func (this *GoodsProjector) do(id es.Guid, assignRGoodsFn func(*RGoods)) {
+	i, err := this._repository.Find(id)
 	if err != nil {
 		return
 	}
 	goods := i.(*RGoods)
 	assignRGoodsFn(goods)
-	g.repository.Save(id, goods)
+	this._repository.Save(id, goods)
 }

@@ -17,9 +17,9 @@ const (
 
 type Order struct {
 	es.BaseAggregate
-	items []OrderItem
-	price Money
-	state OrderState
+	_items []OrderItem
+	_price Money
+	_state OrderState
 }
 
 type OrderItem struct {
@@ -36,67 +36,67 @@ func NewOrder() es.Aggregate {
 	return &Order{}
 }
 
-func (o *Order) ProcessCreateOrderCommand(command *CreateOrderCommand) []es.Event {
+func (this *Order) ProcessCreateOrderCommand(command *CreateOrderCommand) []es.Event {
 	if len(command.Items) == 0 {
 		panic(fmt.Errorf("order items is nil"))
 	}
 	return []es.Event{&OrderCreatedEvent{Items: command.Items}}
 }
 
-func (o *Order) ProcessCancelOrderCommand(command *CancelOrderCommand) []es.Event {
-	if o.state != OrderCreated {
-		panic(fmt.Errorf("Can't process CancelOrderCommand of state:%s", o.state))
+func (this *Order) ProcessCancelOrderCommand(command *CancelOrderCommand) []es.Event {
+	if this._state != OrderCreated {
+		panic(fmt.Errorf("Can't process CancelOrderCommand of state:%s", this._state))
 	}
 	return []es.Event{&OrderCanceledEvent{}}
 }
 
-func (o *Order) ProcessCreateOrderPaymetCommand(command *CreateOrderPaymetCommand) []es.Event {
-	if o.state != OrderCreated {
-		panic(fmt.Errorf("Can't process CreateOrderPaymetCommand of state:%s", o.state))
+func (this *Order) ProcessCreateOrderPaymetCommand(command *CreateOrderPaymetCommand) []es.Event {
+	if this._state != OrderCreated {
+		panic(fmt.Errorf("Can't process CreateOrderPaymetCommand of state:%s", this._state))
 	}
 	return []es.Event{
 		&OrderPaymetCreatedEvent{
 			User:           command.User,
 			UserAccount:    command.UserAccount,
 			ManagedAccount: command.ManagedAccount,
-			Price:          o.price,
+			Price:          this._price,
 		},
 	}
 }
 
-func (o *Order) ProcessCompleteOrderPaymetCommand(command *CompleteOrderPaymetCommand) []es.Event {
-	if o.state != OrderPaymetCreated {
-		panic(fmt.Errorf("Can't process CompleteOrderPaymetCommand of state:%s", o.state))
+func (this *Order) ProcessCompleteOrderPaymetCommand(command *CompleteOrderPaymetCommand) []es.Event {
+	if this._state != OrderPaymetCreated {
+		panic(fmt.Errorf("Can't process CompleteOrderPaymetCommand of state:%s", this._state))
 	}
-	return []es.Event{&OrderPaymetCompletedEvent{OrderItems: o.items, User: command.User}}
+	return []es.Event{&OrderPaymetCompletedEvent{OrderItems: this._items, User: command.User}}
 }
 
-func (o *Order) ProcessFailOrderPaymetCommand(command *FailOrderPaymetCommand) []es.Event {
-	if o.state != OrderPaymetCreated {
-		panic(fmt.Errorf("Can't process FailOrderPaymetCommand of state:%s", o.state))
+func (this *Order) ProcessFailOrderPaymetCommand(command *FailOrderPaymetCommand) []es.Event {
+	if this._state != OrderPaymetCreated {
+		panic(fmt.Errorf("Can't process FailOrderPaymetCommand of state:%s", this._state))
 	}
-	return []es.Event{&OrderPaymetFailedEvent{OrderItems: o.items, User: command.User}}
+	return []es.Event{&OrderPaymetFailedEvent{OrderItems: this._items, User: command.User}}
 }
 
-func (o *Order) HandleOrderCreatedEvent(event *OrderCreatedEvent) {
-	o.items, o.state = event.Items, OrderCreated
+func (this *Order) HandleOrderCreatedEvent(event *OrderCreatedEvent) {
+	this._items, this._state = event.Items, OrderCreated
 	for _, v := range event.Items {
-		o.price += Money(float64(v.Price) * float64(v.Quantity))
+		this._price += Money(float64(v.Price) * float64(v.Quantity))
 	}
 }
 
-func (o *Order) HandleOrderCanceledEvent(event *OrderCanceledEvent) {
-	o.state = OrderCanceled
+func (this *Order) HandleOrderCanceledEvent(event *OrderCanceledEvent) {
+	this._state = OrderCanceled
 }
 
-func (o *Order) HandleOrderPaymetCreatedEvent(event *OrderPaymetCreatedEvent) {
-	o.state = OrderPaymetCreated
+func (this *Order) HandleOrderPaymetCreatedEvent(event *OrderPaymetCreatedEvent) {
+	this._state = OrderPaymetCreated
 }
 
-func (o *Order) HandleOrderPaymetCompletedEvent(event *OrderPaymetCompletedEvent) {
-	o.state = OrderPaymetCompleted
+func (this *Order) HandleOrderPaymetCompletedEvent(event *OrderPaymetCompletedEvent) {
+	this._state = OrderPaymetCompleted
 }
 
-func (o *Order) HandleOrderPaymetFailedEvent(event *OrderPaymetFailedEvent) {
-	o.state = OrderPaymetFailed
+func (this *Order) HandleOrderPaymetFailedEvent(event *OrderPaymetFailedEvent) {
+	this._state = OrderPaymetFailed
 }

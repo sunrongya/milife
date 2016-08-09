@@ -20,7 +20,7 @@ func TestGoodsCommentRestore(t *testing.T) {
 	comment.HandleGoodsCommentCompletedEvent(&GoodsCommentCompletedEvent{CommentDetails: details})
 
 	assert.Equal(t, details, comment.CommentDetails, "details error")
-	assert.Equal(t, CommentCompleted, comment.state, "state error")
+	assert.Equal(t, CommentCompleted, comment._state, "state error")
 }
 
 func TestCreateGoodsCommentCommand(t *testing.T) {
@@ -47,7 +47,7 @@ func TestCompleteGoodsCommentCommand(t *testing.T) {
 	}
 	command := &CompleteGoodsCommentCommand{CommentDetails: details}
 	events := []es.Event{&GoodsCommentCompletedEvent{CommentDetails: details}}
-	goodsComment := &GoodsComment{state: CommentStarted}
+	goodsComment := &GoodsComment{_state: CommentStarted}
 
 	assert.Equal(t, events, goodsComment.ProcessCompleteGoodsCommentCommand(command), "")
 }
@@ -62,7 +62,7 @@ func TestFailGoodsCommentCommand(t *testing.T) {
 	}
 	command := &FailGoodsCommentCommand{CommentDetails: details}
 	events := []es.Event{&GoodsCommentFailedEvent{CommentDetails: details}}
-	goodsComment := &GoodsComment{state: CommentStarted}
+	goodsComment := &GoodsComment{_state: CommentStarted}
 
 	assert.Equal(t, events, goodsComment.ProcessFailGoodsCommentCommand(command), "")
 }
@@ -70,8 +70,8 @@ func TestFailGoodsCommentCommand(t *testing.T) {
 func TestCompleteGoodsCommentCommand_Panic(t *testing.T) {
 	goodsComments := []*GoodsComment{
 		&GoodsComment{},
-		&GoodsComment{state: CommentCompleted},
-		&GoodsComment{state: CommentFailed},
+		&GoodsComment{_state: CommentCompleted},
+		&GoodsComment{_state: CommentFailed},
 	}
 	for _, goodsComment := range goodsComments {
 		assert.Panics(t, func() {
@@ -83,8 +83,8 @@ func TestCompleteGoodsCommentCommand_Panic(t *testing.T) {
 func TestFailGoodsCommentCommand_Panic(t *testing.T) {
 	goodsComments := []*GoodsComment{
 		&GoodsComment{},
-		&GoodsComment{state: CommentCompleted},
-		&GoodsComment{state: CommentFailed},
+		&GoodsComment{_state: CommentCompleted},
+		&GoodsComment{_state: CommentFailed},
 	}
 	for _, goodsComment := range goodsComments {
 		assert.Panics(t, func() {

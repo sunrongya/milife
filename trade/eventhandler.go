@@ -5,66 +5,66 @@ import (
 )
 
 type PurchaseEventHandler struct {
-	goodsChan    chan<- es.Command
-	purchaseChan chan<- es.Command
+	_goodsChan    chan<- es.Command
+	_purchaseChan chan<- es.Command
 }
 
 func NewPurchaseEventHandler(goodsChan, purchaseChan chan<- es.Command) *PurchaseEventHandler {
 	return &PurchaseEventHandler{
-		goodsChan:    goodsChan,
-		purchaseChan: purchaseChan,
+		_goodsChan:    goodsChan,
+		_purchaseChan: purchaseChan,
 	}
 }
 
 func (this *PurchaseEventHandler) HandleGoodsPurchaseCreatedEvent(event *GoodsPurchaseCreatedEvent) {
-	this.goodsChan <- &PurchaseGoodsBecauseOfPurchaseCommand{
+	this._goodsChan <- &PurchaseGoodsBecauseOfPurchaseCommand{
 		WithGuid:        es.WithGuid{Guid: event.Goods},
 		PurchaseDetails: event.PurchaseDetails,
 	}
 }
 
 func (this *PurchaseEventHandler) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
-	this.purchaseChan <- &CompleteGoodsPurchaseCommand{
+	this._purchaseChan <- &CompleteGoodsPurchaseCommand{
 		WithGuid:        es.WithGuid{Guid: event.Purchase},
 		PurchaseDetails: event.PurchaseDetails,
 	}
 }
 
 func (this *PurchaseEventHandler) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
-	this.purchaseChan <- &FailGoodsPurchaseCommand{
+	this._purchaseChan <- &FailGoodsPurchaseCommand{
 		WithGuid:        es.WithGuid{Guid: event.Purchase},
 		PurchaseDetails: event.PurchaseDetails,
 	}
 }
 
 type CommentEventHandler struct {
-	goodsChan   chan<- es.Command
-	commentChan chan<- es.Command
+	_goodsChan   chan<- es.Command
+	_commentChan chan<- es.Command
 }
 
 func NewCommentEventHandler(goodsChan, commentChan chan<- es.Command) *CommentEventHandler {
 	return &CommentEventHandler{
-		goodsChan:   goodsChan,
-		commentChan: commentChan,
+		_goodsChan:   goodsChan,
+		_commentChan: commentChan,
 	}
 }
 
 func (this *CommentEventHandler) HandleGoodsCommentCreatedEvent(event *GoodsCommentCreatedEvent) {
-	this.goodsChan <- &CommentGoodsBecauseOfCommentCommand{
+	this._goodsChan <- &CommentGoodsBecauseOfCommentCommand{
 		WithGuid:       es.WithGuid{Guid: event.Goods},
 		CommentDetails: event.CommentDetails,
 	}
 }
 
 func (this *CommentEventHandler) HandleGoodsCommentCompletedEvent(event *GoodsCommentCompletedEvent) {
-	this.commentChan <- &CompleteGoodsCommentCommand{
+	this._commentChan <- &CompleteGoodsCommentCommand{
 		WithGuid:       es.WithGuid{Guid: event.Comment},
 		CommentDetails: event.CommentDetails,
 	}
 }
 
 func (this *CommentEventHandler) HandleGoodsCommentFailedEvent(event *GoodsCommentFailedEvent) {
-	this.commentChan <- &FailGoodsCommentCommand{
+	this._commentChan <- &FailGoodsCommentCommand{
 		WithGuid:       es.WithGuid{Guid: event.Comment},
 		CommentDetails: event.CommentDetails,
 	}
@@ -72,12 +72,12 @@ func (this *CommentEventHandler) HandleGoodsCommentFailedEvent(event *GoodsComme
 
 type PaymetEventHandler struct {
 	PaymetService
-	goodsChan chan<- es.Command
-	orderChan chan<- es.Command
+	_goodsChan chan<- es.Command
+	_orderChan chan<- es.Command
 }
 
 func NewPaymetEventHandler(paymetService PaymetService, goodsCh, orderCh chan<- es.Command) *PaymetEventHandler {
-	return &PaymetEventHandler{PaymetService: paymetService, goodsChan: goodsCh, orderChan: orderCh}
+	return &PaymetEventHandler{PaymetService: paymetService, _goodsChan: goodsCh, _orderChan: orderCh}
 }
 
 type PaymetService interface {
@@ -87,7 +87,7 @@ type PaymetService interface {
 func (this *PaymetEventHandler) HandleOrderPaymetCreatedEvent(event *OrderPaymetCreatedEvent) {
 	go this.Transfer(event.Price, event.UserAccount, event.ManagedAccount, func(isOk bool) {
 		if isOk {
-			this.orderChan <- &CompleteOrderPaymetCommand{
+			this._orderChan <- &CompleteOrderPaymetCommand{
 				WithGuid:       es.WithGuid{Guid: event.GetGuid()},
 				Price:          event.Price,
 				User:           event.User,
@@ -95,7 +95,7 @@ func (this *PaymetEventHandler) HandleOrderPaymetCreatedEvent(event *OrderPaymet
 				ManagedAccount: event.ManagedAccount,
 			}
 		} else {
-			this.orderChan <- &FailOrderPaymetCommand{
+			this._orderChan <- &FailOrderPaymetCommand{
 				WithGuid:       es.WithGuid{Guid: event.GetGuid()},
 				Price:          event.Price,
 				User:           event.User,
@@ -108,7 +108,7 @@ func (this *PaymetEventHandler) HandleOrderPaymetCreatedEvent(event *OrderPaymet
 
 func (this *PaymetEventHandler) HandleOrderPaymetCompletedEvent(event *OrderPaymetCompletedEvent) {
 	for _, v := range event.OrderItems {
-		this.goodsChan <- &CompletePaymetGoodsBecauseOfOrderCommand{
+		this._goodsChan <- &CompletePaymetGoodsBecauseOfOrderCommand{
 			WithGuid: es.WithGuid{Guid: v.Goods},
 			User:     event.User,
 			Order:    event.GetGuid(),
@@ -120,7 +120,7 @@ func (this *PaymetEventHandler) HandleOrderPaymetCompletedEvent(event *OrderPaym
 
 func (this *PaymetEventHandler) HandleOrderPaymetFailedEvent(event *OrderPaymetFailedEvent) {
 	for _, v := range event.OrderItems {
-		this.goodsChan <- &FailPaymetGoodsBecauseOfOrderCommand{
+		this._goodsChan <- &FailPaymetGoodsBecauseOfOrderCommand{
 			WithGuid: es.WithGuid{Guid: v.Goods},
 			User:     event.User,
 			Order:    event.GetGuid(),

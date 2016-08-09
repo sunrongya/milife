@@ -12,55 +12,55 @@ type RAccount struct {
 }
 
 type RAccountProjector struct {
-	repository es.ReadRepository
+	_repository es.ReadRepository
 }
 
 func NewRAccountProjector(repository es.ReadRepository) *RAccountProjector {
-	return &RAccountProjector{repository: repository}
+	return &RAccountProjector{_repository: repository}
 }
 
-func (r *RAccountProjector) HandleAccountOpenedEvent(event *AccountOpenedEvent) {
+func (this *RAccountProjector) HandleAccountOpenedEvent(event *AccountOpenedEvent) {
 	account := &RAccount{
 		Id:      event.GetGuid(),
 		Name:    event.Name,
 		Card:    string(event.Card),
 		Balance: event.Balance,
 	}
-	r.repository.Save(account.Id, account)
+	this._repository.Save(account.Id, account)
 }
 
-func (r *RAccountProjector) HandleAccountCreditedEvent(event *AccountCreditedEvent) {
-	r.do(event.GetGuid(), func(account *RAccount) {
+func (this *RAccountProjector) HandleAccountCreditedEvent(event *AccountCreditedEvent) {
+	this.do(event.GetGuid(), func(account *RAccount) {
 		account.Balance += event.Amount
 	})
 }
 
-func (r *RAccountProjector) HandleAccountDebitedEvent(event *AccountDebitedEvent) {
-	r.do(event.GetGuid(), func(account *RAccount) {
+func (this *RAccountProjector) HandleAccountDebitedEvent(event *AccountDebitedEvent) {
+	this.do(event.GetGuid(), func(account *RAccount) {
 		account.Balance -= event.Amount
 	})
 }
 
-func (r *RAccountProjector) HandleAccountDebitedBecauseOfTransferEvent(event *AccountDebitedBecauseOfTransferEvent) {
-	r.do(event.GetGuid(), func(account *RAccount) {
+func (this *RAccountProjector) HandleAccountDebitedBecauseOfTransferEvent(event *AccountDebitedBecauseOfTransferEvent) {
+	this.do(event.GetGuid(), func(account *RAccount) {
 		account.Balance -= event.Amount
 	})
 }
 
-func (r *RAccountProjector) HandleAccountCreditedBecauseOfTransferEvent(event *AccountCreditedBecauseOfTransferEvent) {
-	r.do(event.GetGuid(), func(account *RAccount) {
+func (this *RAccountProjector) HandleAccountCreditedBecauseOfTransferEvent(event *AccountCreditedBecauseOfTransferEvent) {
+	this.do(event.GetGuid(), func(account *RAccount) {
 		account.Balance += event.Amount
 	})
 }
 
-func (r *RAccountProjector) do(id es.Guid, assignRAccountFn func(*RAccount)) {
-	i, err := r.repository.Find(id)
+func (this *RAccountProjector) do(id es.Guid, assignRAccountFn func(*RAccount)) {
+	i, err := this._repository.Find(id)
 	if err != nil {
 		return
 	}
 	account := i.(*RAccount)
 	assignRAccountFn(account)
-	r.repository.Save(id, account)
+	this._repository.Save(id, account)
 }
 
 type MoneyFlowRate struct {
@@ -73,55 +73,55 @@ type MoneyFlowRate struct {
 }
 
 type MoneyFlowRateProjector struct {
-	repository es.ReadRepository
-	Id         es.Guid
+	_repository es.ReadRepository
+	Id          es.Guid
 }
 
 func NewMoneyFlowRateProjector(repository es.ReadRepository, id es.Guid) *MoneyFlowRateProjector {
-	return &MoneyFlowRateProjector{repository: repository, Id: id}
+	return &MoneyFlowRateProjector{_repository: repository, Id: id}
 }
 
-func (r *MoneyFlowRateProjector) HandleAccountOpenedEvent(event *AccountOpenedEvent) {
-	r.do(func(rate *MoneyFlowRate) {
+func (this *MoneyFlowRateProjector) HandleAccountOpenedEvent(event *AccountOpenedEvent) {
+	this.do(func(rate *MoneyFlowRate) {
 		rate.NumOpened += 1
 		rate.Amount += event.Balance
 	})
 }
 
-func (r *MoneyFlowRateProjector) HandleAccountCreditedEvent(event *AccountCreditedEvent) {
-	r.do(func(rate *MoneyFlowRate) {
+func (this *MoneyFlowRateProjector) HandleAccountCreditedEvent(event *AccountCreditedEvent) {
+	this.do(func(rate *MoneyFlowRate) {
 		rate.NumCredited += 1
 		rate.Amount += event.Amount
 	})
 }
 
-func (r *MoneyFlowRateProjector) HandleAccountDebitedEvent(event *AccountDebitedEvent) {
-	r.do(func(rate *MoneyFlowRate) {
+func (this *MoneyFlowRateProjector) HandleAccountDebitedEvent(event *AccountDebitedEvent) {
+	this.do(func(rate *MoneyFlowRate) {
 		rate.NumDebited += 1
 		rate.Amount += event.Amount
 	})
 }
 
-func (r *MoneyFlowRateProjector) HandleAccountDebitedBecauseOfTransferEvent(event *AccountDebitedBecauseOfTransferEvent) {
-	r.do(func(rate *MoneyFlowRate) {
+func (this *MoneyFlowRateProjector) HandleAccountDebitedBecauseOfTransferEvent(event *AccountDebitedBecauseOfTransferEvent) {
+	this.do(func(rate *MoneyFlowRate) {
 		rate.NumDebitedBecauseOfTransfer += 1
 		rate.Amount += event.Amount
 	})
 }
 
-func (r *MoneyFlowRateProjector) HandleAccountCreditedBecauseOfTransferEvent(event *AccountCreditedBecauseOfTransferEvent) {
-	r.do(func(rate *MoneyFlowRate) {
+func (this *MoneyFlowRateProjector) HandleAccountCreditedBecauseOfTransferEvent(event *AccountCreditedBecauseOfTransferEvent) {
+	this.do(func(rate *MoneyFlowRate) {
 		rate.NumCreditedBecauseOfTransfer += 1
 		rate.Amount += event.Amount
 	})
 }
 
-func (r *MoneyFlowRateProjector) do(assignRateFn func(*MoneyFlowRate)) {
-	i, _ := r.repository.Find(r.Id)
+func (this *MoneyFlowRateProjector) do(assignRateFn func(*MoneyFlowRate)) {
+	i, _ := this._repository.Find(this.Id)
 	if i == nil {
 		i = &MoneyFlowRate{}
 	}
 	rate := i.(*MoneyFlowRate)
 	assignRateFn(rate)
-	r.repository.Save(r.Id, rate)
+	this._repository.Save(this.Id, rate)
 }

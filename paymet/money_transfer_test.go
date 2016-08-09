@@ -19,8 +19,8 @@ func TestMoneyTransferRestore(t *testing.T) {
 	moneyTransfer.HandleTransferDebitedEvent(&TransferDebitedEvent{mTDetails: details})
 	moneyTransfer.HandleTransferCompletedEvent(&TransferCompletedEvent{mTDetails: details})
 
-	assert.Equal(t, Completed, moneyTransfer.state, "")
-	assert.Equal(t, details, moneyTransfer.mTDetails, "")
+	assert.Equal(t, Completed, moneyTransfer._state, "")
+	assert.Equal(t, details, moneyTransfer._mTDetails, "")
 }
 
 func TestCreateTransferCommand(t *testing.T) {
@@ -43,7 +43,7 @@ func TestDebitedTransferCommand(t *testing.T) {
 		Amount:      40,
 		Transaction: es.NewGuid(),
 	}
-	moneyTransfer := &MoneyTransfer{state: Created}
+	moneyTransfer := &MoneyTransfer{_state: Created}
 	command := &DebitedTransferCommand{mTDetails: details}
 	events := []es.Event{&TransferDebitedEvent{mTDetails: details}}
 
@@ -57,7 +57,7 @@ func TestCompletedTransferCommand(t *testing.T) {
 		Amount:      40,
 		Transaction: es.NewGuid(),
 	}
-	moneyTransfer := &MoneyTransfer{state: Debited}
+	moneyTransfer := &MoneyTransfer{_state: Debited}
 	command := &CompletedTransferCommand{mTDetails: details}
 	events := []es.Event{&TransferCompletedEvent{mTDetails: details}}
 
@@ -71,7 +71,7 @@ func TestFailedTransferCommand(t *testing.T) {
 		Amount:      40,
 		Transaction: es.NewGuid(),
 	}
-	moneyTransfers := []*MoneyTransfer{&MoneyTransfer{state: Debited}, &MoneyTransfer{}}
+	moneyTransfers := []*MoneyTransfer{&MoneyTransfer{_state: Debited}, &MoneyTransfer{}}
 	command := &FailedTransferCommand{mTDetails: details}
 	events := []es.Event{&TransferFailedEvent{mTDetails: details}}
 
@@ -83,9 +83,9 @@ func TestFailedTransferCommand(t *testing.T) {
 func TestDebitedTransferCommand_Panic(t *testing.T) {
 	moneyTransfers := []*MoneyTransfer{
 		&MoneyTransfer{},
-		&MoneyTransfer{state: Debited},
-		&MoneyTransfer{state: Completed},
-		&MoneyTransfer{state: Failed},
+		&MoneyTransfer{_state: Debited},
+		&MoneyTransfer{_state: Completed},
+		&MoneyTransfer{_state: Failed},
 	}
 	for _, moneyTransfer := range moneyTransfers {
 		assert.Panics(t, func() {
@@ -97,9 +97,9 @@ func TestDebitedTransferCommand_Panic(t *testing.T) {
 func TestCompletedTransferCommand_Panic(t *testing.T) {
 	moneyTransfers := []*MoneyTransfer{
 		&MoneyTransfer{},
-		&MoneyTransfer{state: Created},
-		&MoneyTransfer{state: Completed},
-		&MoneyTransfer{state: Failed},
+		&MoneyTransfer{_state: Created},
+		&MoneyTransfer{_state: Completed},
+		&MoneyTransfer{_state: Failed},
 	}
 	for _, moneyTransfer := range moneyTransfers {
 		assert.Panics(t, func() {
@@ -110,9 +110,8 @@ func TestCompletedTransferCommand_Panic(t *testing.T) {
 
 func TestFailedTransferCommand_Panic(t *testing.T) {
 	moneyTransfers := []*MoneyTransfer{
-		&MoneyTransfer{state: Created},
-		&MoneyTransfer{state: Completed},
-		&MoneyTransfer{state: Failed},
+		&MoneyTransfer{_state: Completed},
+		&MoneyTransfer{_state: Failed},
 	}
 	for _, moneyTransfer := range moneyTransfers {
 		assert.Panics(t, func() {

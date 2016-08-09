@@ -15,7 +15,7 @@ func NewGoodsPurchaseService(store es.EventStore) *GoodsPurchaseService {
 	return service
 }
 
-func (g *GoodsPurchaseService) CreateGoodsPurchase(goods, user es.Guid, quantity Quantity) es.Guid {
+func (this *GoodsPurchaseService) CreateGoodsPurchase(goods, user es.Guid, quantity Quantity) es.Guid {
 	guid := es.NewGuid()
 	c := &CreateGoodsPurchaseCommand{
 		WithGuid: es.WithGuid{guid},
@@ -26,6 +26,6 @@ func (g *GoodsPurchaseService) CreateGoodsPurchase(goods, user es.Guid, quantity
 			Quantity: quantity,
 		},
 	}
-	g.PublishCommand(c)
+	this.PublishCommand(c)
 	return guid
 }

@@ -19,25 +19,25 @@ const (
 // TODO 后面考虑添加商品SN不能重复，修改商品需求
 type Goods struct {
 	es.BaseAggregate
-	name          string
-	price         Money
-	quantity      Quantity
-	sn            SN
-	state         State
-	purchaseLimit map[es.Guid]Quantity
-	comments      map[es.Guid]es.Guid
+	_name          string
+	_price         Money
+	_quantity      Quantity
+	_sn            SN
+	_state         State
+	_purchaseLimit map[es.Guid]Quantity
+	_comments      map[es.Guid]es.Guid
 }
 
 var _ es.Aggregate = (*Goods)(nil)
 
 func NewGoods() es.Aggregate {
 	return &Goods{
-		purchaseLimit: make(map[es.Guid]Quantity),
-		comments:      make(map[es.Guid]es.Guid),
+		_purchaseLimit: make(map[es.Guid]Quantity),
+		_comments:      make(map[es.Guid]es.Guid),
 	}
 }
 
-func (g *Goods) ProcessPublishGoodsCommand(command *PublishGoodsCommand) []es.Event {
+func (this *Goods) ProcessPublishGoodsCommand(command *PublishGoodsCommand) []es.Event {
 	return []es.Event{
 		&GoodsPublishedEvent{
 			Name:     command.Name,
@@ -48,9 +48,9 @@ func (g *Goods) ProcessPublishGoodsCommand(command *PublishGoodsCommand) []es.Ev
 	}
 }
 
-func (g *Goods) ProcessAuditGoodsCommand(command *AuditGoodsCommand) []es.Event {
-	if g.state != Published {
-		panic(fmt.Errorf("Can't process AuditGoodsCommand of state:%s", g.state))
+func (this *Goods) ProcessAuditGoodsCommand(command *AuditGoodsCommand) []es.Event {
+	if this._state != Published {
+		panic(fmt.Errorf("Can't process AuditGoodsCommand of state:%s", this._state))
 	}
 	if command.IsPass {
 		return []es.Event{&GoodsAuditedPassEvent{}}
@@ -58,38 +58,38 @@ func (g *Goods) ProcessAuditGoodsCommand(command *AuditGoodsCommand) []es.Event 
 	return []es.Event{&GoodsAuditedNoPassEvent{}}
 }
 
-func (g *Goods) ProcessOnlineGoodsCommand(command *OnlineGoodsCommand) []es.Event {
-	if g.state != AuditedPass {
-		panic(fmt.Errorf("Can't process OnlineGoodsCommand of state:%s", g.state))
+func (this *Goods) ProcessOnlineGoodsCommand(command *OnlineGoodsCommand) []es.Event {
+	if this._state != AuditedPass {
+		panic(fmt.Errorf("Can't process OnlineGoodsCommand of state:%s", this._state))
 	}
 	return []es.Event{&GoodsOnlinedEvent{}}
 }
 
-func (g *Goods) ProcessOfflineGoodsCommand(command *OfflineGoodsCommand) []es.Event {
-	if g.state != Onlined {
-		panic(fmt.Errorf("Can't process OnlineGoodsCommand of state:%s", g.state))
+func (this *Goods) ProcessOfflineGoodsCommand(command *OfflineGoodsCommand) []es.Event {
+	if this._state != Onlined {
+		panic(fmt.Errorf("Can't process OnlineGoodsCommand of state:%s", this._state))
 	}
 	return []es.Event{&GoodsOfflinedEvent{}}
 }
 
-func (g *Goods) ProcessPurchaseGoodsBecauseOfPurchaseCommand(command *PurchaseGoodsBecauseOfPurchaseCommand) []es.Event {
-	if g.state != Onlined {
-		panic(fmt.Errorf("Can't process PurchaseGoodsBecauseOfPurchaseCommand of state:%s", g.state))
+func (this *Goods) ProcessPurchaseGoodsBecauseOfPurchaseCommand(command *PurchaseGoodsBecauseOfPurchaseCommand) []es.Event {
+	if this._state != Onlined {
+		panic(fmt.Errorf("Can't process PurchaseGoodsBecauseOfPurchaseCommand of state:%s", this._state))
 	}
-	if g.checkPurchaseQuantity(command) {
+	if this.checkPurchaseQuantity(command) {
 		return []es.Event{&GoodsPurchaseSuccessedEvent{PurchaseDetails: command.PurchaseDetails}}
 	}
 	return []es.Event{&GoodsPurchaseFailuredEvent{PurchaseDetails: command.PurchaseDetails}}
 }
 
-func (g *Goods) checkPurchaseQuantity(command *PurchaseGoodsBecauseOfPurchaseCommand) bool {
-	userQuantity := g.purchaseLimit[command.User] + command.Quantity
-	return g.quantity >= userQuantity && userQuantity <= 3
+func (this *Goods) checkPurchaseQuantity(command *PurchaseGoodsBecauseOfPurchaseCommand) bool {
+	userQuantity := this._purchaseLimit[command.User] + command.Quantity
+	return this._quantity >= userQuantity && userQuantity <= 3
 }
 
-func (g *Goods) ProcessCompletePaymetGoodsBecauseOfOrderCommand(command *CompletePaymetGoodsBecauseOfOrderCommand) []es.Event {
-	if g.state != Onlined {
-		panic(fmt.Errorf("Can't process CompletePaymetGoodsBecauseOfOrderCommand of state:%s", g.state))
+func (this *Goods) ProcessCompletePaymetGoodsBecauseOfOrderCommand(command *CompletePaymetGoodsBecauseOfOrderCommand) []es.Event {
+	if this._state != Onlined {
+		panic(fmt.Errorf("Can't process CompletePaymetGoodsBecauseOfOrderCommand of state:%s", this._state))
 	}
 	return []es.Event{
 		&PaymetGoodsCompletedBecauseOfOrderEvent{
@@ -101,9 +101,9 @@ func (g *Goods) ProcessCompletePaymetGoodsBecauseOfOrderCommand(command *Complet
 	}
 }
 
-func (g *Goods) ProcessFailPaymetGoodsBecauseOfOrderCommand(command *FailPaymetGoodsBecauseOfOrderCommand) []es.Event {
-	if g.state != Onlined {
-		panic(fmt.Errorf("Can't process FailPaymetGoodsBecauseOfOrderCommand of state:%s", g.state))
+func (this *Goods) ProcessFailPaymetGoodsBecauseOfOrderCommand(command *FailPaymetGoodsBecauseOfOrderCommand) []es.Event {
+	if this._state != Onlined {
+		panic(fmt.Errorf("Can't process FailPaymetGoodsBecauseOfOrderCommand of state:%s", this._state))
 	}
 	return []es.Event{
 		&PaymetGoodsFailedBecauseOfOrderEvent{
@@ -115,53 +115,53 @@ func (g *Goods) ProcessFailPaymetGoodsBecauseOfOrderCommand(command *FailPaymetG
 	}
 }
 
-func (g *Goods) ProcessCommentGoodsBecauseOfCommentCommand(command *CommentGoodsBecauseOfCommentCommand) []es.Event {
-	if g.state != Onlined {
-		panic(fmt.Errorf("Can't process CommentGoodsBecauseOfCommentCommand of state:%s", g.state))
+func (this *Goods) ProcessCommentGoodsBecauseOfCommentCommand(command *CommentGoodsBecauseOfCommentCommand) []es.Event {
+	if this._state != Onlined {
+		panic(fmt.Errorf("Can't process CommentGoodsBecauseOfCommentCommand of state:%s", this._state))
 	}
-	if _, ok := g.comments[command.Purchase]; ok {
+	if _, ok := this._comments[command.Purchase]; ok {
 		return []es.Event{&GoodsCommentSuccessedEvent{CommentDetails: command.CommentDetails}}
 	}
 	return []es.Event{&GoodsCommentFailuredEvent{CommentDetails: command.CommentDetails}}
 }
 
-func (g *Goods) HandleGoodsPublishedEvent(event *GoodsPublishedEvent) {
-	g.name, g.price, g.quantity, g.sn, g.state = event.Name, event.Price, event.Quantity, event.SN, Published
+func (this *Goods) HandleGoodsPublishedEvent(event *GoodsPublishedEvent) {
+	this._name, this._price, this._quantity, this._sn, this._state = event.Name, event.Price, event.Quantity, event.SN, Published
 }
 
-func (g *Goods) HandleGoodsAuditedPassEvent(event *GoodsAuditedPassEvent) {
-	g.state = AuditedPass
+func (this *Goods) HandleGoodsAuditedPassEvent(event *GoodsAuditedPassEvent) {
+	this._state = AuditedPass
 }
 
-func (g *Goods) HandleGoodsAuditedNoPassEvent(event *GoodsAuditedNoPassEvent) {
-	g.state = AuditedNoPass
+func (this *Goods) HandleGoodsAuditedNoPassEvent(event *GoodsAuditedNoPassEvent) {
+	this._state = AuditedNoPass
 }
 
-func (g *Goods) HandleGoodsOnlinedEvent(event *GoodsOnlinedEvent) {
-	g.state = Onlined
+func (this *Goods) HandleGoodsOnlinedEvent(event *GoodsOnlinedEvent) {
+	this._state = Onlined
 }
 
-func (g *Goods) HandleGoodsOfflinedEvent(event *GoodsOfflinedEvent) {
-	g.state = Offlined
+func (this *Goods) HandleGoodsOfflinedEvent(event *GoodsOfflinedEvent) {
+	this._state = Offlined
 }
 
-func (g *Goods) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
-	g.quantity -= event.Quantity
+func (this *Goods) HandleGoodsPurchaseSuccessedEvent(event *GoodsPurchaseSuccessedEvent) {
+	this._quantity -= event.Quantity
 }
 
-func (g *Goods) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
+func (this *Goods) HandleGoodsPurchaseFailuredEvent(event *GoodsPurchaseFailuredEvent) {
 }
 
-func (g *Goods) HandleGoodsCommentSuccessedEvent(event *GoodsCommentSuccessedEvent) {
-	delete(g.comments, event.Purchase)
+func (this *Goods) HandleGoodsCommentSuccessedEvent(event *GoodsCommentSuccessedEvent) {
+	delete(this._comments, event.Purchase)
 }
 
-func (g *Goods) HandleGoodsCommentFailuredEvent(event *GoodsCommentFailuredEvent) {
+func (this *Goods) HandleGoodsCommentFailuredEvent(event *GoodsCommentFailuredEvent) {
 }
 
-func (g *Goods) HandlePaymetGoodsCompletedBecauseOfOrderEvent(event *PaymetGoodsCompletedBecauseOfOrderEvent) {
-	g.comments[event.Purchase] = event.User
+func (this *Goods) HandlePaymetGoodsCompletedBecauseOfOrderEvent(event *PaymetGoodsCompletedBecauseOfOrderEvent) {
+	this._comments[event.Purchase] = event.User
 }
 
-func (g *Goods) HandlePaymetGoodsFailedBecauseOfOrderEvent(event *PaymetGoodsFailedBecauseOfOrderEvent) {
+func (this *Goods) HandlePaymetGoodsFailedBecauseOfOrderEvent(event *PaymetGoodsFailedBecauseOfOrderEvent) {
 }
